@@ -1,0 +1,31 @@
+# --- OS ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- IDE / éditeurs ---
+.idea/
+.vscode/
+*.iml
+*.swp
+
+# --- Secrets / configuration locale ---
+.env
+.env.local
+*.local
+
+# --- Backend (Java / Maven) ---
+backend/target/
+*.class
+*.log
+
+# --- Frontend (Node / Vite) ---
+node_modules/
+desktop/dist/
+desktop/dist-ssr/
+desktop/.vite/
+*.tsbuildinfo
+
+# --- Tauri (Rust) ---
+desktop/src-tauri/target/
+desktop/src-tauri/gen/

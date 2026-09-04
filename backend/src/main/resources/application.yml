@@ -1,0 +1,76 @@
+spring:
+  application:
+    name: lubrimanager
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/lubrimanager}
+    username: ${DB_USER:lubrimanager}
+    password: ${DB_PASSWORD:lubrimanager}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    baseline-on-migrate: false
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+
+server:
+  port: 8080
+  error:
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
+
+lubrimanager:
+  security:
+    jwt:
+      issuer: lubrimanager
+      # HS256 — 32 caractères minimum. À surcharger IMPÉRATIVEMENT en production via JWT_SECRET.
+      secret: ${JWT_SECRET:dev-only-insecure-secret-change-me-0123456789abcdef0123456789abcdef}
+      access-token-ttl: 15m
+      refresh-token-ttl: 7d
+    lockout:
+      max-failed-attempts: 5
+      lock-duration: 15m
+    cors:
+      allowed-origins:
+        - http://localhost:1420
+        - http://localhost:5173
+        - tauri://localhost
+  bootstrap:
+    admin:
+      enabled: true
+      username: admin
+      password: ${ADMIN_PASSWORD:Admin!2026}
+      full-name: Administrateur
+  recharge:
+    # DEC-03 : au-delà de ce montant, la recharge passe EN_ATTENTE d'une validation MANAGER.
+    approval-threshold: ${RECHARGE_APPROVAL_THRESHOLD:500000}
+    # DEC-22 : montant maximum d'une recharge.
+    max-amount: ${RECHARGE_MAX_AMOUNT:5000000}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui
+    operations-sorter: method
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+logging:
+  level:
+    com.lubrimanager: INFO

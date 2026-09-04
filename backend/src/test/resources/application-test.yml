@@ -1,0 +1,34 @@
+# Profil de test : PostgreSQL local, base dédiée réinitialisée à chaque test.
+spring:
+  datasource:
+    url: ${TEST_DB_URL:jdbc:postgresql://localhost:5432/lubrimanager_test}
+    username: ${TEST_DB_USER:lubrimanager}
+    password: ${TEST_DB_PASSWORD:lubrimanager}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    clean-disabled: false
+
+lubrimanager:
+  security:
+    jwt:
+      secret: test-secret-test-secret-test-secret-0123456789abcd
+      access-token-ttl: 15m
+      refresh-token-ttl: 7d
+    lockout:
+      max-failed-attempts: 3
+      lock-duration: 15m
+  bootstrap:
+    admin:
+      enabled: true
+      username: admin
+      password: Admin!Test2026
+      full-name: Admin Test
+  recharge:
+    approval-threshold: 100000
+    max-amount: 1000000
+
+logging:
+  level:
+    org.flywaydb: WARN

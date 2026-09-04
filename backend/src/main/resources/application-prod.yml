@@ -1,0 +1,25 @@
+# Profil production — activer avec SPRING_PROFILES_ACTIVE=prod
+# Toutes les valeurs sensibles DOIVENT venir de l'environnement (pas de défaut).
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+lubrimanager:
+  security:
+    jwt:
+      secret: ${JWT_SECRET}
+  bootstrap:
+    admin:
+      # Désactiver après la création initiale du compte administrateur.
+      enabled: ${ADMIN_BOOTSTRAP_ENABLED:false}
+      password: ${ADMIN_PASSWORD}
+
+logging:
+  level:
+    com.lubrimanager: INFO
+    org.hibernate.SQL: WARN

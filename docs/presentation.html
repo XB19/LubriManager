@@ -1,0 +1,496 @@
+<title>Présentation LubriManager</title>
+<meta name="description" content="Support de présentation à la direction : ce qui est livré, la démo à dérouler, l'avancement et les prochaines étapes.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --paper: #F6F3EC;
+    --surface: #FFFFFF;
+    --ink: #17201F;
+    --ink-soft: #4B5654;
+    --ink-faint: #7C8582;
+    --line: #DAD3C4;
+    --petrol: #0E4A46;
+    --petrol-bright: #1E7C76;
+    --amber: #A85D12;
+    --ok: #2E7D52;
+    --warn: #935F16;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #121817;
+      --surface: #19211F;
+      --ink: #E9E7DE;
+      --ink-soft: #ADB2AC;
+      --ink-faint: #808782;
+      --line: #2A332F;
+      --petrol: #63B7B0;
+      --petrol-bright: #82D2CB;
+      --amber: #D89A54;
+      --ok: #5FB98A;
+      --warn: #CFA155;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #121817;
+    --surface: #19211F;
+    --ink: #E9E7DE;
+    --ink-soft: #ADB2AC;
+    --ink-faint: #808782;
+    --line: #2A332F;
+    --petrol: #63B7B0;
+    --petrol-bright: #82D2CB;
+    --amber: #D89A54;
+    --ok: #5FB98A;
+    --warn: #CFA155;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, .eyebrow { font-family: "Archivo", "IBM Plex Sans", system-ui, sans-serif; }
+
+  .deck { position: relative; }
+
+  .slide {
+    display: none;
+    min-height: 100svh;
+    padding: clamp(1.75rem, 5.5vh, 4rem) clamp(1.5rem, 6vw, 5.5rem) clamp(4.5rem, 9vh, 6rem);
+    flex-direction: column;
+    justify-content: center;
+  }
+  .slide.active { display: flex; }
+  @media (prefers-reduced-motion: no-preference) {
+    .slide.active > * { animation: rise .42s cubic-bezier(.2, .7, .3, 1) both; }
+    .slide.active > *:nth-child(2) { animation-delay: .05s; }
+    .slide.active > *:nth-child(3) { animation-delay: .1s; }
+    .slide.active > *:nth-child(4) { animation-delay: .15s; }
+  }
+  @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+  .inner { width: 100%; max-width: 62rem; margin: 0 auto; }
+
+  .eyebrow {
+    font-size: .72rem;
+    font-weight: 600;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin: 0 0 1rem;
+  }
+  h1 {
+    font-size: clamp(2rem, 6vw, 3.6rem);
+    font-weight: 700;
+    line-height: 1.04;
+    letter-spacing: -.02em;
+    margin: 0;
+    text-wrap: balance;
+  }
+  h2 {
+    font-size: clamp(1.55rem, 4vw, 2.5rem);
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: -.015em;
+    margin: 0 0 1.4rem;
+    text-wrap: balance;
+  }
+  .lede {
+    font-size: clamp(1.05rem, 1.9vw, 1.3rem);
+    color: var(--ink-soft);
+    max-width: 44ch;
+    margin: 1.2rem 0 0;
+    line-height: 1.55;
+  }
+  p { line-height: 1.6; }
+
+  .stack { display: flex; flex-direction: column; gap: .7rem; }
+  .cols {
+    display: grid;
+    gap: .7rem 2.2rem;
+    grid-template-columns: 1fr;
+  }
+  @media (min-width: 720px) { .cols { grid-template-columns: 1fr 1fr; } }
+
+  .item {
+    display: flex;
+    gap: .7rem;
+    align-items: baseline;
+    font-size: 1.02rem;
+    line-height: 1.5;
+  }
+  .item::before {
+    content: "";
+    flex: none;
+    width: 7px; height: 7px;
+    border-radius: 2px;
+    background: var(--petrol-bright);
+    transform: translateY(-1px);
+  }
+  .item b { font-weight: 600; }
+  .item span { color: var(--ink-soft); }
+
+  .guarantee {
+    border-left: 3px solid var(--petrol);
+    padding: .1rem 0 .1rem 1.1rem;
+  }
+  .guarantee h3 {
+    font-family: "Archivo", sans-serif;
+    font-size: 1.15rem;
+    margin: 0 0 .25rem;
+  }
+  .guarantee p { margin: 0; color: var(--ink-soft); font-size: .98rem; }
+  .guarantee .eg {
+    display: block;
+    margin-top: .35rem;
+    font-size: .88rem;
+    color: var(--ink-faint);
+    font-variant-numeric: tabular-nums;
+  }
+
+  ol.script { margin: 0; padding: 0; list-style: none; counter-reset: step; }
+  ol.script li {
+    counter-increment: step;
+    display: flex;
+    gap: .9rem;
+    padding: .5rem 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 1rem;
+    line-height: 1.45;
+  }
+  ol.script li:last-child { border-bottom: 0; }
+  ol.script li::before {
+    content: counter(step);
+    flex: none;
+    width: 1.7rem; height: 1.7rem;
+    display: grid; place-items: center;
+    border-radius: 50%;
+    background: var(--petrol);
+    color: var(--paper);
+    font-family: "Archivo", sans-serif;
+    font-size: .82rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  :root[data-theme="dark"] ol.script li::before,
+  :root:not([data-theme="light"]) ol.script li::before { color: #121817; }
+  @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) ol.script li::before { color: var(--paper); } }
+  ol.script b { font-weight: 600; }
+  ol.script .num { color: var(--amber); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  .tiles { display: grid; gap: 1rem; grid-template-columns: repeat(2, 1fr); }
+  @media (min-width: 720px) { .tiles { grid-template-columns: repeat(4, 1fr); } }
+  .tile {
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: var(--surface);
+    padding: 1rem 1.1rem;
+  }
+  .tile .big {
+    font-family: "Archivo", sans-serif;
+    font-size: 1.9rem;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .tile .cap {
+    display: block;
+    margin-top: .35rem;
+    font-size: .8rem;
+    color: var(--ink-soft);
+  }
+
+  .meta {
+    margin-top: 2rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem .6rem;
+    font-size: .78rem;
+    color: var(--ink-faint);
+  }
+  .chip {
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: .2rem .7rem;
+  }
+
+  .note {
+    margin-top: 1.8rem;
+    padding-top: .9rem;
+    border-top: 1px dashed var(--line);
+    font-size: .88rem;
+    color: var(--ink-faint);
+    max-width: 60ch;
+    line-height: 1.55;
+  }
+  .note b {
+    color: var(--amber);
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    font-size: .78rem;
+  }
+
+  /* navigation bar */
+  .bar {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: .7rem clamp(1rem, 4vw, 2rem);
+    background: color-mix(in srgb, var(--paper) 82%, transparent);
+    backdrop-filter: blur(6px);
+    border-top: 1px solid var(--line);
+    font-size: .78rem;
+    color: var(--ink-faint);
+    z-index: 10;
+  }
+  .dots { display: flex; gap: 6px; }
+  .dots button {
+    width: 8px; height: 8px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: var(--line);
+    cursor: pointer;
+  }
+  .dots button[aria-current="true"] { background: var(--petrol); }
+  .dots button:focus-visible { outline: 2px solid var(--petrol-bright); outline-offset: 2px; }
+  .count { font-variant-numeric: tabular-nums; }
+  .hint { display: none; }
+  @media (min-width: 720px) { .hint { display: inline; } }
+
+  a.brand { color: var(--petrol); font-weight: 600; text-decoration: none; font-family: "Archivo", sans-serif; }
+
+  @media print {
+    .bar { display: none; }
+    .slide { display: flex !important; min-height: auto; page-break-after: always; border-bottom: 1px solid var(--line); padding: 2rem 0; }
+    .slide.active > * { animation: none; }
+    body { background: #fff; }
+  }
+</style>
+
+<div class="deck" id="deck">
+
+  <!-- 1 — Cover -->
+  <section class="slide active">
+    <div class="inner">
+      <p class="eyebrow">Point d'avancement</p>
+      <h1>LubriManager</h1>
+      <p class="lede">Le logiciel de gestion des cartes clients, des recharges, des ventes de lubrifiants et du stock — centralisé, sécurisé et traçable.</p>
+      <div class="meta">
+        <span class="chip">Application desktop Windows</span>
+        <span class="chip">React + Tauri</span>
+        <span class="chip">Spring Boot</span>
+        <span class="chip">PostgreSQL</span>
+      </div>
+      <p class="note"><b>À dire</b> — « Voici où en est le projet. Je vais vous montrer ce qui fonctionne aujourd'hui, faire une démonstration rapide, puis ce qu'il reste à faire avant la mise en service. »</p>
+    </div>
+  </section>
+
+  <!-- 2 — Le problème -->
+  <section class="slide">
+    <div class="inner">
+      <p class="eyebrow">Le point de départ</p>
+      <h2>Aujourd'hui, tout se fait à la main</h2>
+      <div class="stack">
+        <p class="item"><span>Les soldes des cartes sont suivis manuellement — <b>risque d'erreur et de solde faux</b>.</span></p>
+        <p class="item"><span>Aucune trace fiable de qui a fait quoi — <b>difficile de contrôler les agents et de détecter une fraude</b>.</span></p>
+        <p class="item"><span>Pas de vue d'ensemble : chiffre d'affaires, recharges, stock — <b>l'information est éparpillée</b>.</span></p>
+        <p class="item"><span>Le passage au comptoir est <b>lent</b> et les reçus ne sont pas standardisés.</span></p>
+      </div>
+      <p class="note"><b>À dire</b> — « L'objectif du projet, fixé dans le cahier des charges, est de remplacer ces procédures manuelles par une solution unique, sûre et contrôlable. »</p>
+    </div>
+  </section>
+
+  <!-- 3 — La solution -->
+  <section class="slide">
+    <div class="inner">
+      <p class="eyebrow">La solution</p>
+      <h2>Une application unique, un serveur qui fait autorité</h2>
+      <div class="stack">
+        <p class="item"><span><b>Poste de travail</b> : une application Windows simple pour les agents (rechercher un client, recharger une carte, enregistrer une vente, imprimer un reçu).</span></p>
+        <p class="item"><span><b>Serveur central</b> : il détient la vérité — le solde, le stock, l'historique. Toutes les règles y sont vérifiées.</span></p>
+        <p class="item"><span><b>Impossible de contourner</b> : un solde insuffisant, un droit d'accès manquant — c'est le serveur qui refuse, pas seulement l'écran.</span></p>
+        <p class="item"><span>La même base pourra servir plus tard une application mobile ou un tableau web, sans tout refaire.</span></p>
+      </div>
+      <p class="note"><b>À dire</b> — « On a d'abord conçu l'architecture et la base de données, puis on a construit brique par brique. »</p>
+    </div>
+  </section>
+
+  <!-- 4 — Ce qui est livré -->
+  <section class="slide">
+    <div class="inner">
+      <p class="eyebrow">Ce qui fonctionne aujourd'hui</p>
+      <h2>13 modules livrés et testés</h2>
+      <div class="cols">
+        <p class="item"><span><b>Connexion & rôles</b> — Administrateur, Responsable, Agent, Auditeur</span></p>
+        <p class="item"><span><b>Clients</b> — création, recherche, fiche complète</span></p>
+        <p class="item"><span><b>Comptes & cartes</b> — plusieurs cartes par client, activation, blocage</span></p>
+        <p class="item"><span><b>Recharges</b> — espèces, TMoney, Flooz, virement, chèque ; validation au-delà d'un seuil</span></p>
+        <p class="item"><span><b>Produits</b> — catégories, prix, TVA, seuil d'alerte</span></p>
+        <p class="item"><span><b>Stock</b> — entrées, ajustements, inventaire, historique</span></p>
+        <p class="item"><span><b>Ventes</b> — panier, débit du compte et sortie de stock en une opération</span></p>
+        <p class="item"><span><b>Grand livre</b> — toutes les transactions, filtrables</span></p>
+        <p class="item"><span><b>Annulations</b> — contre-passation avec motif, historique conservé</span></p>
+        <p class="item"><span><b>Audit</b> — qui, quoi, quand, depuis quel poste</span></p>
+        <p class="item"><span><b>Tableau de bord</b> — indicateurs du jour, de la semaine, du mois</span></p>
+        <p class="item"><span><b>Rapports & notifications</b> — export Excel, alertes stock bas</span></p>
+      </div>
+      <p class="note"><b>À dire</b> — « Chaque module correspond à un point du cahier des charges. »</p>
+    </div>
+  </section>
+
+  <!-- 5 — Les garanties -->
+  <section class="slide">
+    <div class="inner">
+      <p class="eyebrow">Les points forts</p>
+      <h2>Trois garanties, non négociables</h2>
+      <div class="stack" style="gap:1.3rem">
+        <div class="guarantee">
+          <h3>Intégrité financière</h3>
+          <p>Un solde ne peut pas devenir faux. Chaque opération est « tout ou rien » et le solde ne bouge jamais sans une écriture au grand livre.</p>
+          <span class="eg">Vérifié : 10 bidons × 8 500 = 85 000 · solde 350 000 → 265 000 · stock 250 → 240.</span>
+        </div>
+        <div class="guarantee">
+          <h3>Traçabilité totale</h3>
+          <p>Aucune transaction validée ne peut être supprimée. Une correction crée une annulation datée et motivée ; l'originale reste visible.</p>
+          <span class="eg">Chaque connexion, recharge, vente et annulation est journalisée avec l'heure et l'adresse du poste.</span>
+        </div>
+        <div class="guarantee">
+          <h3>Sécurité</h3>
+          <p>Mots de passe chiffrés, jetons de connexion à durée limitée, verrouillage après plusieurs échecs, permissions vérifiées côté serveur.</p>
+          <span class="eg">Un agent ne peut ni supprimer une transaction, ni modifier un solde à la main, ni créer un administrateur.</span>
+        </div>
+      </div>
+      <p class="note"><b>À dire</b> — « C'est ce qui distingue un vrai logiciel de gestion d'un simple tableur. »</p>
+    </div>
+  </section>
+
+  <!-- 6 — La démo -->
+  <section class="slide">
+    <div class="inner">
+      <p class="eyebrow">Démonstration — 3 minutes</p>
+      <h2>Le parcours que je vais dérouler à l'écran</h2>
+      <ol class="script">
+        <li><span>Je me connecte comme <b>administrateur</b>.</span></li>
+        <li><span>Je crée un <b>client</b>, puis une <b>carte</b> que j'active.</span></li>
+        <li><span>Je <b>recharge</b> la carte de <span class="num">350 000 FCFA</span> — le reçu s'affiche.</span></li>
+        <li><span>Je crée le produit <b>« Huile moteur 20W50 »</b> à <span class="num">8 500 FCFA</span> et j'entre <span class="num">250</span> en stock.</span></li>
+        <li><span>Je fais une <b>vente</b> de <span class="num">10</span> bidons : total <span class="num">85 000</span>, le solde passe à <span class="num">265 000</span>, le stock à <span class="num">240</span> — automatiquement.</span></li>
+        <li><span>J'ouvre le <b>grand livre</b> : la recharge et l'achat y sont, impossible de les effacer.</span></li>
+        <li><span>Le <b>tableau de bord</b> s'est mis à jour ; le <b>journal d'audit</b> montre mes actions horodatées.</span></li>
+      </ol>
+      <p class="note"><b>À dire</b> — « Si le solde n'avait pas suffi, la vente aurait été refusée et rien n'aurait bougé. »</p>
+    </div>
+  </section>
+
+  <!-- 7 — Avancement -->
+  <section class="slide">
+    <div class="inner">
+      <p class="eyebrow">Où en est le projet</p>
+      <h2>Le cœur métier est terminé</h2>
+      <div class="tiles">
+        <div class="tile"><span class="big">10<span style="font-size:1.1rem;color:var(--ink-faint)">/13</span></span><span class="cap">phases du plan terminées</span></div>
+        <div class="tile"><span class="big">13</span><span class="cap">modules fonctionnels</span></div>
+        <div class="tile"><span class="big">110</span><span class="cap">tests automatisés au vert</span></div>
+        <div class="tile"><span class="big">100 %</span><span class="cap">des règles vérifiées côté serveur</span></div>
+      </div>
+      <p class="lede" style="max-width:52ch">Le serveur est complet et testé. L'interface est fonctionnelle et <b>utilisable dès maintenant</b> pour valider les processus.</p>
+      <p class="note"><b>À dire</b> — « Les 110 tests rejouent automatiquement les cas critiques du cahier des charges à chaque modification : recharge, vente, solde insuffisant, annulation. »</p>
+    </div>
+  </section>
+
+  <!-- 8 — Ce qui reste -->
+  <section class="slide">
+    <div class="inner">
+      <p class="eyebrow">Ce qu'il reste à faire</p>
+      <h2>De l'outil fonctionnel à la mise en service</h2>
+      <div class="stack">
+        <p class="item"><span><b>Empaquetage Windows</b> — produire l'installateur <code>LubriManager-Setup.exe</code> (nécessite un certificat de signature de code).</span></p>
+        <p class="item"><span><b>Renforcement des tests</b> — tests de sécurité systématiques, tests de charge.</span></p>
+        <p class="item"><span><b>Mise en production</b> — serveur, <b>sauvegardes automatiques quotidiennes</b> de la base, documentation.</span></p>
+        <p class="item"><span><b>Reçus & impression</b> — mise en forme des tickets et factures selon vos exigences.</span></p>
+      </div>
+      <p class="note"><b>À dire</b> — « Ce sont des étapes de finalisation, pas de nouvelles fonctionnalités métier. »</p>
+    </div>
+  </section>
+
+  <!-- 9 — Décisions + proposition -->
+  <section class="slide">
+    <div class="inner">
+      <p class="eyebrow">Ce dont j'ai besoin</p>
+      <h2>Quelques décisions métier à trancher</h2>
+      <div class="cols">
+        <p class="item"><span><b>TVA</b> — les prix sont-ils TTC ? La TVA (18 %) doit-elle figurer sur la facture ? Facture normalisée ?</span></p>
+        <p class="item"><span><b>Plafonds</b> — montant maximum d'une recharge ; seuil au-delà duquel un responsable doit valider.</span></p>
+        <p class="item"><span><b>Reçus</b> — ticket thermique 80 mm, A4, les deux ? Quelle imprimante ?</span></p>
+        <p class="item"><span><b>Archivage</b> — durée de conservation des journaux (obligations comptables).</span></p>
+      </div>
+      <p class="lede" style="max-width:54ch"><b>Ma proposition :</b> valider la démonstration, trancher ces points, puis finaliser l'empaquetage Windows et préparer le déploiement.</p>
+      <p class="note"><b>À dire</b> — « Ces choix ne bloquent pas le développement : des valeurs par défaut raisonnables sont déjà en place et se règlent en configuration. »</p>
+    </div>
+  </section>
+
+</div>
+
+<div class="bar">
+  <a class="brand" href="#" onclick="go(0);return false;">LubriManager</a>
+  <div class="dots" id="dots" role="tablist" aria-label="Aller à une diapositive"></div>
+  <div>
+    <span class="count" id="count">1 / 9</span>
+    <span class="hint"> &nbsp;·&nbsp; ← → pour naviguer</span>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+    var dotsWrap = document.getElementById('dots');
+    var count = document.getElementById('count');
+    var i = 0;
+
+    slides.forEach(function (_, n) {
+      var b = document.createElement('button');
+      b.setAttribute('role', 'tab');
+      b.setAttribute('aria-label', 'Diapositive ' + (n + 1));
+      b.addEventListener('click', function () { go(n); });
+      dotsWrap.appendChild(b);
+    });
+    var dots = Array.prototype.slice.call(dotsWrap.children);
+
+    window.go = function (n) {
+      i = Math.max(0, Math.min(slides.length - 1, n));
+      slides.forEach(function (s, k) { s.classList.toggle('active', k === i); });
+      dots.forEach(function (d, k) { d.setAttribute('aria-current', k === i ? 'true' : 'false'); });
+      count.textContent = (i + 1) + ' / ' + slides.length;
+      if (location.hash !== '#' + (i + 1)) history.replaceState(null, '', '#' + (i + 1));
+    };
+
+    function next() { go(i + 1); }
+    function prev() { go(i - 1); }
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') { e.preventDefault(); next(); }
+      else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); prev(); }
+      else if (e.key === 'Home') { go(0); }
+      else if (e.key === 'End') { go(slides.length - 1); }
+    });
+
+    document.getElementById('deck').addEventListener('click', function (e) {
+      if (e.target.closest('a, button')) return;
+      var mid = window.innerWidth / 2;
+      (e.clientX < mid ? prev : next)();
+    });
+
+    var start = parseInt((location.hash || '').replace('#', ''), 10);
+    go(isNaN(start) ? 0 : start - 1);
+  })();
+</script>

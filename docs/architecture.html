@@ -1,0 +1,1269 @@
+<title>Architecture LubriManager</title>
+<meta name="description" content="Dossier d'architecture Phase 1 — application desktop de gestion des cartes, comptes, lubrifiants et transactions.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:ital,opt@0,400;0,600;1,400&display=swap">
+<style>
+:root{
+  --paper:#F6F4EF; --surface:#FFFFFF; --surface-2:#FBFAF6;
+  --ink:#1B1E23; --ink-soft:#4C515A; --ink-faint:#7A7F88;
+  --line:#DED8CC; --line-strong:#C7BFAF;
+  --petrol:#12494A; --petrol-bright:#1C6E70;
+  --amber:#9C5C10; --amber-line:#C98A3C; --amber-wash:#F3E7D2;
+  --ok:#2E7D52; --warn:#9A6C18; --stop:#AE3838;
+  --diagram-bg:#FBFAF6; --diagram-ink:#1B1E23; --diagram-line:#4C515A; --diagram-accent:#12494A; --diagram-fill:#FFFFFF; --diagram-fill-2:#F3E7D2;
+  --shadow:0 1px 2px rgba(20,25,30,.04),0 8px 24px -12px rgba(20,25,30,.14);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#14171A; --surface:#1B1F23; --surface-2:#20252A;
+    --ink:#ECEAE2; --ink-soft:#B0AEA4; --ink-faint:#83817A;
+    --line:#2E3339; --line-strong:#3C424A;
+    --petrol:#63B8B4; --petrol-bright:#8AD4CF;
+    --amber:#D69B57; --amber-line:#8A5F2C; --amber-wash:#2A241A;
+    --ok:#66BE93; --warn:#CFA155; --stop:#E27E7E;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px -14px rgba(0,0,0,.5);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#14171A; --surface:#1B1F23; --surface-2:#20252A;
+  --ink:#ECEAE2; --ink-soft:#B0AEA4; --ink-faint:#83817A;
+  --line:#2E3339; --line-strong:#3C424A;
+  --petrol:#63B8B4; --petrol-bright:#8AD4CF;
+  --amber:#D69B57; --amber-line:#8A5F2C; --amber-wash:#2A241A;
+  --ok:#66BE93; --warn:#CFA155; --stop:#E27E7E;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px -14px rgba(0,0,0,.5);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+body{
+  margin:0;background:var(--paper);color:var(--ink);
+  font-family:"Source Serif 4",Georgia,"Times New Roman",serif;
+  font-size:17px;line-height:1.62;-webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,h4,.u-sans{font-family:"IBM Plex Sans","Segoe UI",system-ui,sans-serif}
+code,kbd,.mono{font-family:"IBM Plex Mono",ui-monospace,"Cascadia Code",Consolas,monospace}
+
+/* ---------- shell ---------- */
+.topbar{
+  position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:1rem;
+  padding:.7rem clamp(1rem,4vw,2.4rem);
+  background:color-mix(in srgb,var(--paper) 88%,transparent);
+  backdrop-filter:blur(8px);border-bottom:1px solid var(--line);
+}
+.topbar .mark{font-family:"IBM Plex Mono",monospace;font-weight:600;letter-spacing:.02em;color:var(--petrol);font-size:.92rem}
+.topbar .mark b{color:var(--ink)}
+.topbar .sep{flex:1}
+.topbar .meta{font-family:"IBM Plex Mono",monospace;font-size:.74rem;color:var(--ink-faint);letter-spacing:.03em}
+.themebtn{
+  font-family:"IBM Plex Mono",monospace;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;
+  background:var(--surface);color:var(--ink-soft);border:1px solid var(--line-strong);border-radius:2px;
+  padding:.34rem .6rem;cursor:pointer
+}
+.themebtn:hover{color:var(--ink);border-color:var(--petrol)}
+.themebtn:focus-visible{outline:2px solid var(--petrol);outline-offset:2px}
+
+.layout{max-width:1280px;margin:0 auto;padding:0 clamp(1rem,4vw,2.4rem)}
+@media (min-width:1080px){
+  .layout{display:grid;grid-template-columns:15.5rem minmax(0,1fr);gap:clamp(2rem,5vw,4rem);align-items:start}
+}
+nav.toc{display:none}
+@media (min-width:1080px){
+  nav.toc{
+    display:block;position:sticky;top:4rem;max-height:calc(100vh - 6rem);overflow-y:auto;
+    padding:1.4rem 0 2rem;font-family:"IBM Plex Sans",sans-serif;font-size:.8rem;line-height:1.4
+  }
+}
+nav.toc .grp{text-transform:uppercase;letter-spacing:.11em;font-size:.66rem;color:var(--ink-faint);margin:1.3rem 0 .5rem}
+nav.toc a{display:block;color:var(--ink-soft);text-decoration:none;padding:.2rem 0 .2rem .7rem;border-left:2px solid var(--line)}
+nav.toc a:hover{color:var(--ink);border-color:var(--line-strong)}
+nav.toc a.active{color:var(--petrol);border-color:var(--petrol);font-weight:600}
+nav.toc a .n{font-family:"IBM Plex Mono",monospace;color:var(--ink-faint);margin-right:.45rem;font-size:.72rem}
+
+main{min-width:0;padding-bottom:6rem}
+
+/* ---------- masthead ---------- */
+.masthead{padding:clamp(2.4rem,7vw,4.6rem) 0 clamp(1.6rem,4vw,2.6rem);border-bottom:2px solid var(--ink)}
+.masthead .kicker{font-family:"IBM Plex Mono",monospace;font-size:.78rem;letter-spacing:.18em;text-transform:uppercase;color:var(--amber);margin:0 0 1rem}
+.masthead h1{font-size:clamp(2.1rem,5.4vw,3.4rem);line-height:1.06;margin:0;font-weight:700;letter-spacing:-.015em;text-wrap:balance}
+.masthead p.lede{font-size:clamp(1.02rem,2.2vw,1.2rem);color:var(--ink-soft);max-width:60ch;margin:1.1rem 0 0}
+.factstrip{display:flex;flex-wrap:wrap;gap:1.6rem 2.4rem;margin-top:1.8rem;font-family:"IBM Plex Sans",sans-serif}
+.factstrip div{font-size:.8rem}
+.factstrip dt{text-transform:uppercase;letter-spacing:.09em;font-size:.63rem;color:var(--ink-faint);margin-bottom:.2rem}
+.factstrip dd{margin:0;font-weight:600;color:var(--ink)}
+
+/* ---------- sections ---------- */
+section.sec{padding:clamp(2.4rem,6vw,4rem) 0;border-bottom:1px solid var(--line)}
+section.sec>h2{
+  font-size:clamp(1.4rem,3.4vw,1.9rem);font-weight:700;letter-spacing:-.01em;margin:0 0 1.2rem;
+  display:flex;gap:.8rem;align-items:baseline;text-wrap:balance
+}
+section.sec>h2 .num{font-family:"IBM Plex Mono",monospace;font-size:.9rem;color:var(--amber);font-weight:600;flex:none}
+h3{font-size:1.12rem;margin:2.2rem 0 .7rem;font-weight:600;color:var(--ink)}
+h4{font-size:.96rem;margin:1.6rem 0 .5rem;font-weight:600;color:var(--ink-soft);font-family:"IBM Plex Sans",sans-serif}
+.prose{max-width:69ch}
+.prose p,.prose ul,.prose ol{margin:.7rem 0}
+.prose ul,.prose ol{padding-left:1.3rem}
+.prose li{margin:.3rem 0}
+.prose strong{font-weight:600}
+.prose a{color:var(--petrol-bright);text-underline-offset:3px}
+.lead{font-size:1.06rem;color:var(--ink-soft)}
+code{background:var(--surface-2);border:1px solid var(--line);border-radius:3px;padding:.06em .38em;font-size:.86em}
+.prose h3 code{font-size:.82em}
+
+/* ---------- callouts ---------- */
+.rule,.decision,.note{max-width:69ch;margin:1.4rem 0;padding:1rem 1.15rem;border:1px solid var(--line);border-left-width:3px;background:var(--surface);border-radius:2px}
+.rule{border-left-color:var(--petrol)}
+.decision{border-left-color:var(--amber-line);background:var(--amber-wash)}
+.note{border-left-color:var(--ink-faint)}
+.rule .tag,.decision .tag,.note .tag{
+  display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;
+  font-weight:600;margin-bottom:.4rem
+}
+.rule .tag{color:var(--petrol-bright)}
+.decision .tag{color:var(--amber)}
+.note .tag{color:var(--ink-faint)}
+.rule p,.decision p,.note p{margin:.3rem 0;font-size:.95rem}
+.decision .reco{margin-top:.55rem;font-size:.92rem}
+.decision .reco b{font-family:"IBM Plex Sans",sans-serif;color:var(--ink)}
+
+/* ---------- tables ---------- */
+.bleed{margin:1.5rem 0;overflow-x:auto;border:1px solid var(--line);border-radius:3px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-family:"IBM Plex Sans",sans-serif;font-size:.82rem}
+caption{caption-side:top;text-align:left;font-family:"IBM Plex Mono",monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);padding:.7rem .9rem .1rem}
+th,td{text-align:left;padding:.5rem .8rem;border-bottom:1px solid var(--line);vertical-align:top}
+thead th{background:var(--surface-2);color:var(--ink-soft);font-weight:600;font-size:.72rem;letter-spacing:.05em;text-transform:uppercase;position:sticky;top:0}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:var(--surface-2)}
+td.mono,th.mono,.num-col{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;white-space:nowrap}
+.yes{color:var(--ok);font-weight:600}
+.no{color:var(--ink-faint)}
+.part{color:var(--warn);font-weight:600}
+.pill{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:.7rem;padding:.1rem .45rem;border-radius:2px;border:1px solid currentColor;white-space:nowrap}
+.pill.g{color:var(--ok)} .pill.a{color:var(--warn)} .pill.r{color:var(--stop)} .pill.n{color:var(--ink-faint)}
+
+/* ---------- code block ---------- */
+pre.block{
+  margin:1.4rem 0;padding:1rem 1.15rem;background:var(--surface-2);border:1px solid var(--line);
+  border-left:3px solid var(--petrol);border-radius:2px;overflow-x:auto;
+  font-family:"IBM Plex Mono",monospace;font-size:.8rem;line-height:1.55;color:var(--ink)
+}
+pre.block .c{color:var(--ink-faint)}
+pre.block .k{color:var(--petrol-bright);font-weight:600}
+pre.block b{color:var(--amber);font-weight:600}
+
+/* ---------- diagrams ---------- */
+figure.dgm{margin:1.6rem 0;border:1px solid var(--line);border-radius:3px;background:var(--diagram-bg);overflow:hidden}
+figure.dgm .mermaid{padding:1.2rem;overflow-x:auto;text-align:center}
+figure.dgm figcaption{padding:.55rem .9rem;border-top:1px solid var(--line);font-family:"IBM Plex Mono",monospace;font-size:.7rem;letter-spacing:.05em;color:var(--ink-faint);background:var(--surface)}
+.mermaid text{font-family:"IBM Plex Sans",sans-serif!important}
+
+/* ---------- misc ---------- */
+.grid2{display:grid;gap:1.2rem;margin:1.4rem 0}
+@media (min-width:640px){.grid2{grid-template-columns:1fr 1fr}}
+.panel{border:1px solid var(--line);border-radius:3px;background:var(--surface);padding:1rem 1.15rem}
+.panel h4{margin-top:0}
+.panel ul{margin:.4rem 0;padding-left:1.1rem;font-size:.9rem}
+.tree{font-family:"IBM Plex Mono",monospace;font-size:.78rem;line-height:1.5;white-space:pre;overflow-x:auto;background:var(--surface-2);border:1px solid var(--line);border-radius:2px;padding:1rem 1.15rem;margin:1.2rem 0;color:var(--ink-soft)}
+.tree b{color:var(--petrol-bright)}
+hr.soft{border:none;border-top:1px solid var(--line);margin:2rem 0;max-width:69ch}
+.footer{padding:3rem 0 1rem;font-family:"IBM Plex Mono",monospace;font-size:.74rem;color:var(--ink-faint);max-width:69ch}
+sup a{text-decoration:none;color:var(--amber);font-family:"IBM Plex Mono",monospace;font-size:.7rem}
+::selection{background:var(--petrol);color:#fff}
+</style>
+
+<div class="topbar">
+  <span class="mark"><b>LubriManager</b> — Dossier d'architecture</span>
+  <span class="sep"></span>
+  <span class="meta">PHASE 1 / v1.0 / 2026-09-03</span>
+  <button class="themebtn" id="themebtn" type="button" aria-label="Changer de thème">Thème : auto</button>
+</div>
+
+<div class="layout">
+  <nav class="toc" aria-label="Sommaire">
+    <div class="grp">Cadre</div>
+    <a href="#s1"><span class="n">01</span>Résumé &amp; périmètre</a>
+    <a href="#s2"><span class="n">02</span>Décisions d'architecture</a>
+    <a href="#s3"><span class="n">03</span>Architecture générale</a>
+    <a href="#s4"><span class="n">04</span>Backend Spring Boot</a>
+    <a href="#s5"><span class="n">05</span>Frontend React</a>
+    <a href="#s6"><span class="n">06</span>Enveloppe Tauri</a>
+    <div class="grp">Domaine</div>
+    <a href="#s7"><span class="n">07</span>Modèle de données</a>
+    <a href="#s8"><span class="n">08</span>Entités &amp; énumérations</a>
+    <a href="#s9"><span class="n">09</span>Relations</a>
+    <a href="#s10"><span class="n">10</span>Rôles &amp; permissions</a>
+    <a href="#s11"><span class="n">11</span>Règles de gestion</a>
+    <div class="grp">Flux critiques</div>
+    <a href="#s12"><span class="n">12</span>Flux de recharge</a>
+    <a href="#s13"><span class="n">13</span>Flux de vente</a>
+    <a href="#s14"><span class="n">14</span>Flux d'annulation</a>
+    <a href="#s15"><span class="n">15</span>Intégrité financière</a>
+    <a href="#s16"><span class="n">16</span>Audit &amp; traçabilité</a>
+    <a href="#s17"><span class="n">17</span>Sécurité</a>
+    <div class="grp">Interfaces</div>
+    <a href="#s18"><span class="n">18</span>API REST</a>
+    <a href="#s19"><span class="n">19</span>Écrans React</a>
+    <a href="#s20"><span class="n">20</span>Structure des dossiers</a>
+    <div class="grp">Livraison</div>
+    <a href="#s21"><span class="n">21</span>Tests</a>
+    <a href="#s22"><span class="n">22</span>Déploiement &amp; hors-ligne</a>
+    <a href="#s23"><span class="n">23</span>Décisions métier à trancher</a>
+    <a href="#s24"><span class="n">24</span>Suite du projet</a>
+  </nav>
+
+  <main>
+    <header class="masthead">
+      <p class="kicker">Phase 1 — Analyse &amp; architecture</p>
+      <h1>LubriManager : architecture d'un système transactionnel de cartes clients</h1>
+      <p class="lede">Application desktop Windows pour la vente et la distribution de lubrifiants — gestion des clients, cartes, comptes prépayés, produits, stock et transactions, avec traçabilité intégrale et intégrité financière garantie.</p>
+      <dl class="factstrip">
+        <div><dt>Frontend</dt><dd>React 18 + TypeScript + Vite</dd></div>
+        <div><dt>Desktop</dt><dd>Tauri 2 (Windows / NSIS)</dd></div>
+        <div><dt>Backend</dt><dd>Spring Boot 3 · Java 21</dd></div>
+        <div><dt>Base</dt><dd>PostgreSQL 16</dd></div>
+        <div><dt>Devise</dt><dd>FCFA (XOF) — sans décimale</dd></div>
+        <div><dt>Fuseau</dt><dd>Africa/Lomé (UTC±00)</dd></div>
+      </dl>
+    </header>
+
+    <!-- ============================================================= -->
+    <section class="sec" id="s1">
+      <h2><span class="num">01</span>Résumé exécutif &amp; périmètre</h2>
+      <div class="prose">
+        <p class="lead">Ce document est le livrable de la <strong>Phase 1</strong>. Il ne contient pas de code applicatif : il fixe l'architecture, le modèle de données, les règles métier et la liste des décisions à valider avant le démarrage de la Phase 2 (authentification).</p>
+
+        <h3>Nature du système</h3>
+        <p>LubriManager n'est pas un CRUD. C'est un <strong>registre transactionnel financier</strong> : chaque mouvement d'argent ou de stock est un fait immuable, horodaté, attribué à un utilisateur et réconciliable. Le solde d'un compte n'est jamais « modifié » — il est la projection d'une suite d'écritures. Trois propriétés priment sur toute autre considération :</p>
+        <ol>
+          <li><strong>Intégrité financière</strong> — atomicité des opérations, aucun solde ni stock partiellement écrit, idempotence des opérations sensibles.</li>
+          <li><strong>Traçabilité</strong> — toute opération importante laisse une trace d'audit ; aucune transaction validée n'est supprimée, seulement contre-passée.</li>
+          <li><strong>Contrôle d'accès</strong> — les permissions sont vérifiées côté serveur, jamais dans React.</li>
+        </ol>
+
+        <h3>Principe d'architecture directeur</h3>
+        <p>Le backend Spring Boot est le <strong>cœur métier</strong> et l'unique source de vérité. React/Tauri est un <strong>client léger</strong> : il affiche, saisit, valide de façon ergonomique, mais ne décide rien. Toute règle (solde suffisant, unicité de carte, droit d'annuler) est appliquée et re-vérifiée par l'API. Cette séparation permet d'ajouter plus tard une application mobile ou un tableau de bord web sur le même backend, sans réécriture.</p>
+
+        <h3>Contenu de la Phase 1</h3>
+        <div class="bleed">
+          <table>
+            <caption>Livrables Phase 1</caption>
+            <thead><tr><th>#</th><th>Livrable</th><th>Section</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">1</td><td>Architecture générale, frontend, backend, Tauri</td><td class="mono">03–06</td></tr>
+              <tr><td class="mono">2</td><td>Modèle de données, entités, relations, énumérations</td><td class="mono">07–09</td></tr>
+              <tr><td class="mono">3</td><td>Matrice rôles / permissions (RBAC)</td><td class="mono">10</td></tr>
+              <tr><td class="mono">4</td><td>Catalogue des règles de gestion</td><td class="mono">11</td></tr>
+              <tr><td class="mono">5</td><td>Flux recharge / vente / annulation + stratégie d'intégrité</td><td class="mono">12–15</td></tr>
+              <tr><td class="mono">6</td><td>Stratégie d'audit et de sécurité</td><td class="mono">16–17</td></tr>
+              <tr><td class="mono">7</td><td>Endpoints REST, écrans React, arborescences</td><td class="mono">18–20</td></tr>
+              <tr><td class="mono">8</td><td>Stratégie de tests et de déploiement (incl. hors-ligne)</td><td class="mono">21–22</td></tr>
+              <tr><td class="mono">9</td><td><strong>Décisions métier à trancher</strong></td><td class="mono">23</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="note"><span class="tag">Légende</span>
+          <p><code>RG-xx</code> règle de gestion &nbsp;·&nbsp; <code>DEC-xx</code> décision à valider par le métier &nbsp;·&nbsp; les blocs ambrés signalent un point bloquant pour le développement.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+    <section class="sec" id="s2">
+      <h2><span class="num">02</span>Décisions d'architecture (avec justification)</h2>
+      <div class="prose">
+        <p>Conformément à la Règle n°9, les choix structurants sont présentés avec leurs alternatives. Ils sont réversibles à coût raisonnable sauf mention contraire.</p>
+      </div>
+      <div class="bleed">
+        <table>
+          <caption>Choix techniques structurants</caption>
+          <thead><tr><th>Sujet</th><th>Options</th><th>Choix retenu</th><th>Pourquoi</th></tr></thead>
+          <tbody>
+            <tr><td>Organisation du dépôt</td><td>Multi-dépôts / mono-dépôt</td><td><strong>Mono-dépôt</strong> <code>/backend</code>, <code>/desktop</code>, <code>/docs</code></td><td>Versionnage cohérent front/back, une seule CI, contrats API partagés (OpenAPI → types TS générés).</td></tr>
+            <tr><td>Java</td><td>17 / 21</td><td><strong>Java 21 LTS</strong></td><td>Records, pattern matching, virtual threads pour l'I/O API ; support long terme.</td></tr>
+            <tr><td>Build backend</td><td>Maven / Gradle</td><td><strong>Maven</strong> multi-module</td><td>Standard Spring, lisible, moins de surprise pour la maintenance.</td></tr>
+            <tr><td>Migrations BD</td><td>Flyway / Liquibase / <code>ddl-auto</code></td><td><strong>Flyway</strong>, <code>ddl-auto=validate</code></td><td>Scripts SQL versionnés, revue possible, rejeu déterministe. <code>ddl-auto</code> automatique interdit en prod.</td></tr>
+            <tr><td>Type monétaire</td><td><code>double</code> / <code>BigDecimal</code> / entier mineur</td><td><strong><code>BigDecimal</code></strong> → <code>NUMERIC(15,2)</code>, contrainte « entier »</td><td><code>double</code> introduit des erreurs d'arrondi inacceptables. FCFA sans décimale : <code>CHECK (montant = trunc(montant))</code>.</td></tr>
+            <tr><td>Identifiants</td><td>UUID public / séquence + référence métier</td><td><strong>PK <code>bigint</code> interne</strong> + <strong>référence métier</strong> exposée (<code>CARD-…</code>, <code>RECH-…</code>)</td><td>PK compacte et indexée ; l'extérieur ne voit que des références lisibles et non énumérables de façon triviale.</td></tr>
+            <tr><td>Concurrence sur le solde</td><td>Optimiste <code>@Version</code> / pessimiste <code>FOR UPDATE</code></td><td><strong>Verrou pessimiste</strong> sur la ligne <code>account</code> pendant l'écriture + <code>@Version</code> en filet</td><td>Contention réelle sur un même compte (recharge + vente simultanées) : le verrou sérialise proprement sans boucle de retry.</td></tr>
+            <tr><td>Idempotence</td><td>Aucune / en-tête <code>Idempotency-Key</code></td><td><strong><code>Idempotency-Key</code> obligatoire</strong> sur recharge, vente, annulation</td><td>Empêche le double débit sur double-clic, retry réseau, ou renvoi Tauri. Contrainte unique en base.</td></tr>
+            <tr><td>Grand livre</td><td>Solde stocké seul / journal d'écritures + projection</td><td><strong>Table <code>transaction</code> en ajout seul</strong> = vérité ; <code>account.balance</code> = cache réconciliable</td><td>Le solde se recalcule par <code>SUM</code> ; un job de réconciliation détecte toute dérive.</td></tr>
+            <tr><td>Mapping DTO</td><td>Manuel / MapStruct / ModelMapper</td><td><strong>MapStruct</strong></td><td>Généré à la compilation, sans réflexion, explicite.</td></tr>
+            <tr><td>État serveur côté React</td><td>Redux Toolkit / <strong>TanStack Query</strong> + Zustand</td><td><strong>TanStack Query</strong> (données serveur) + <strong>Zustand</strong> léger (auth, UI)</td><td>90 % de l'état est du cache serveur : cache, invalidation, retry, pagination gérés nativement. Redux = trop de cérémonie ici.</td></tr>
+            <tr><td>Bibliothèque UI</td><td>MUI / <strong>Mantine</strong> / shadcn-ui + Radix</td><td><strong>Mantine 7</strong> (+ Mantine DataTable, Form, Dates, Notifications)</td><td>Application dense en tableaux et formulaires : composants prêts, accessibles, thémables. Alternative si contrôle visuel total souhaité : shadcn-ui.</td></tr>
+            <tr><td>Stockage du token (Tauri)</td><td>localStorage / mémoire + <strong>keychain OS</strong></td><td><strong>Access token en mémoire</strong> ; refresh token chiffré via <code>tauri-plugin-stronghold</code> / keychain</td><td>localStorage est lisible par tout script injecté et persiste en clair sur disque.</td></tr>
+            <tr><td>Mode hors-ligne v1</td><td>File d'opérations locale / <strong>online-first</strong></td><td><strong>Online-first</strong> : opérations financières impossibles sans serveur ; cache lecture seule</td><td>Voir §22 — une file d'écritures financières locale crée un risque de double débit et d'incohérence de stock non maîtrisable en v1.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+    <section class="sec" id="s3">
+      <h2><span class="num">03</span>Architecture générale</h2>
+      <div class="prose">
+        <p>Trois niveaux, un seul contrat : l'API REST HTTPS documentée en OpenAPI. Le poste de travail n'ouvre jamais de connexion directe à PostgreSQL.</p>
+      </div>
+      <figure class="dgm">
+        <pre class="mermaid">
+%%{init:{'theme':'base','themeVariables':{'background':'#FBFAF6','primaryColor':'#FFFFFF','primaryTextColor':'#1B1E23','primaryBorderColor':'#12494A','lineColor':'#4C515A','secondaryColor':'#F3E7D2','fontFamily':'IBM Plex Sans'}}}%%
+flowchart TB
+  subgraph Poste["Poste de travail Windows"]
+    UI["React + TypeScript<br/>(Mantine, TanStack Query)"]
+    T["Tauri 2 — coquille native<br/>keychain · updater · impression"]
+    UI --- T
+  end
+  subgraph Serveur["Serveur d'application"]
+    API["Spring Boot 3 / Java 21<br/>Web · Security · Data JPA"]
+    SVC["Couche services<br/>@Transactional · règles métier"]
+    API --> SVC
+  end
+  DB[("PostgreSQL 16<br/>clients · comptes · transactions<br/>stock · audit · notifications")]
+  FS[["Sauvegardes<br/>pg_dump quotidien + WAL"]]
+  T -- "HTTPS / REST + JWT" --> API
+  SVC --> DB
+  DB -.-> FS
+        </pre>
+        <figcaption>fig. 03-1 — Vue de contexte (C4 niveau 1)</figcaption>
+      </figure>
+      <div class="prose">
+        <h4>Principes directeurs</h4>
+        <ul>
+          <li><strong>Backend headless</strong> — aucune dépendance à un client particulier ; le desktop est un consommateur parmi d'autres à venir.</li>
+          <li><strong>Stateless</strong> — l'API ne garde pas de session serveur ; l'état d'authentification tient dans le JWT. Montée en charge horizontale possible.</li>
+          <li><strong>Contrat d'abord</strong> — OpenAPI publié par le backend ; le front génère ses types TypeScript à partir du schéma (pas de dérive de contrat).</li>
+          <li><strong>Fail closed</strong> — en cas de doute (permission, solde, connectivité), l'opération est refusée, jamais tentée « au mieux ».</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+    <section class="sec" id="s4">
+      <h2><span class="num">04</span>Architecture backend Spring Boot</h2>
+      <div class="prose">
+        <h3>Découpage en couches</h3>
+        <p>Quatre couches, une seule direction de dépendance (de haut en bas). La logique métier vit dans les <strong>services</strong>, jamais dans les contrôleurs.</p>
+      </div>
+      <div class="bleed">
+        <table>
+          <caption>Couches et responsabilités</caption>
+          <thead><tr><th>Couche</th><th>Contient</th><th>Ne fait pas</th></tr></thead>
+          <tbody>
+            <tr><td><code>controller</code></td><td>Routage HTTP, désérialisation, <code>@Valid</code>, <code>@PreAuthorize</code>, mapping DTO→commande, codes de retour</td><td>Aucune règle métier, aucun accès repository direct</td></tr>
+            <tr><td><code>service</code></td><td>Règles de gestion, orchestration, <code>@Transactional</code>, verrous, appels audit, publication d'événements</td><td>Pas de détail HTTP, pas de SQL brut hors repository</td></tr>
+            <tr><td><code>repository</code></td><td>Spring Data JPA, requêtes dérivées, <code>@Query</code>, projections, <code>@Lock</code></td><td>Pas de logique métier</td></tr>
+            <tr><td><code>entity</code></td><td>Entités JPA, invariants simples, énumérations, <code>@Version</code></td><td>Pas d'appel à un service ou repository</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="prose">
+        <h3>Modularisation par domaine</h3>
+        <p>Un package racine par domaine métier ; chaque package est autonome (controller/service/repository/entity/dto/mapper/exception). Découpage possible en modules Maven plus tard sans refactor.</p>
+      </div>
+      <div class="tree">com.lubrimanager
+├─ <b>config</b>        Beans, OpenAPI, CORS, Jackson, horloge, verrouillage
+├─ <b>security</b>      Filtre JWT, UserDetails, RBAC, PasswordEncoder, @PreAuthorize
+├─ <b>auth</b>          login / refresh / logout / me, RefreshToken
+├─ <b>user</b>          Utilisateurs, rôles, activation
+├─ <b>customer</b>      Clients, statuts, recherche
+├─ <b>account</b>       Comptes, solde, ajustement (ADMIN)
+├─ <b>card</b>          Cartes, cycle de vie, unicité, historique
+├─ <b>product</b>       Produits, prix, seuil d'alerte
+├─ <b>category</b>      Catégories de produits
+├─ <b>transaction</b>   Journal (ajout seul), réversion, filtres
+├─ <b>recharge</b>      Recharges + génération de référence
+├─ <b>sale</b>          Ventes, panier, lignes
+├─ <b>inventory</b>     Mouvements de stock, inventaire, alertes
+├─ <b>payment</b>       Moyens de paiement (paramétrables)
+├─ <b>report</b>        Agrégats, export PDF / Excel
+├─ <b>audit</b>         AuditLog, intercepteur, consultation
+├─ <b>notification</b>  Notifications applicatives
+└─ <b>common</b>        Exceptions, ApiError, pagination, référence, idempotence, Money</div>
+      <div class="prose">
+        <h4>Éléments transverses</h4>
+        <ul>
+          <li><strong><code>@RestControllerAdvice</code> global</strong> — traduit toute exception en <code>ApiError</code> normalisé (voir §17), journalise la stacktrace côté serveur, expose un message intelligible côté client.</li>
+          <li><strong>Générateur de références</strong> — service dédié s'appuyant sur une table <code>reference_counter</code> (préfixe, date, séquence) verrouillée, garantissant <code>RECH-20260903-000001</code> strictement croissant et sans trou exploitable.</li>
+          <li><strong>Horloge injectable</strong> (<code>java.time.Clock</code>) — pour des tests déterministes des horodatages.</li>
+          <li><strong>Publication d'événements</strong> (<code>ApplicationEventPublisher</code>) — audit et notifications sont abonnés, sans coupler le service métier.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+    <section class="sec" id="s5">
+      <h2><span class="num">05</span>Architecture frontend React</h2>
+      <div class="prose">
+        <h3>Organisation par fonctionnalité</h3>
+        <p>Le code est regroupé par domaine dans <code>features/</code> (chaque feature : composants, hooks, appels API, types, routes). Le générique reste dans <code>components/</code>, <code>lib/</code>, <code>hooks/</code>.</p>
+
+        <h3>Couche données</h3>
+        <ul>
+          <li><strong>Client HTTP</strong> — instance Axios unique : base URL, intercepteur qui ajoute <code>Authorization: Bearer</code>, intercepteur 401 → tentative de refresh puis rejeu, sinon déconnexion.</li>
+          <li><strong>TanStack Query</strong> — un hook par ressource (<code>useCustomers</code>, <code>useCard(id)</code>…). Les mutations financières passent une <code>Idempotency-Key</code> (UUID généré au montage du formulaire, figé jusqu'au succès) et invalident les caches impactés.</li>
+          <li><strong>Types partagés</strong> — générés depuis <code>openapi.json</code> du backend (script <code>npm run gen:api</code>). Le front ne redéclare jamais un DTO à la main.</li>
+        </ul>
+
+        <h3>État applicatif</h3>
+        <ul>
+          <li><strong>Auth</strong> — store Zustand : utilisateur courant, rôles, access token en mémoire. Persistance du seul refresh token, côté Tauri (keychain).</li>
+          <li><strong>UI</strong> — préférences locales (thème, densité des tableaux, dernier filtre) dans <code>localStorage</code>, en lecture défensive.</li>
+        </ul>
+
+        <h3>Routing &amp; garde</h3>
+        <p>React Router avec routes protégées : un <code>&lt;RequireAuth roles={[…]}&gt;</code> masque l'UI non autorisée — <strong>confort seulement</strong>. L'autorisation réelle est celle du backend ; le front doit gérer proprement un 403 renvoyé malgré une UI affichée.</p>
+
+        <h3>Qualité</h3>
+        <ul>
+          <li>Formulaires : Mantine Form + résolveur Zod (mêmes règles de validation que Bean Validation, dupliquées volontairement pour l'ergonomie).</li>
+          <li>Composants transverses : <code>DataTable</code> paginée serveur, <code>MoneyInput</code> (FCFA, séparateur de milliers), <code>StatusBadge</code>, <code>ConfirmDialog</code>, <code>ReceiptPrint</code>.</li>
+          <li>Formatage centralisé : <code>formatMoney</code>, <code>formatDate</code>/<code>formatTime</code> (locale <code>fr</code>, fuseau Lomé).</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+    <section class="sec" id="s6">
+      <h2><span class="num">06</span>Enveloppe desktop Tauri</h2>
+      <div class="prose">
+        <p>Tauri transforme le bundle React en <code>LubriManager.exe</code> et fournit les capacités natives que le navigateur n'a pas. Le cœur métier reste 100 % côté Spring Boot ; Tauri n'exécute <strong>aucune</strong> règle financière.</p>
+
+        <h3>Rôle de la couche Rust / Tauri</h3>
+        <div class="bleed">
+          <table>
+            <caption>Capacités natives</caption>
+            <thead><tr><th>Besoin</th><th>Mécanisme Tauri</th></tr></thead>
+            <tbody>
+              <tr><td>Secret persistant (refresh token)</td><td><code>tauri-plugin-stronghold</code> ou keychain OS — chiffré au repos</td></tr>
+              <tr><td>Mise à jour de l'application</td><td><code>tauri-plugin-updater</code> — paquets signés, endpoint de version</td></tr>
+              <tr><td>Impression reçus / factures</td><td>Fenêtre d'impression WebView ou commande native vers imprimante par défaut / thermique 80 mm</td></tr>
+              <tr><td>Config serveur (URL API)</td><td><code>tauri-plugin-store</code> — fichier de config éditable, valeur par défaut usine</td></tr>
+              <tr><td>Détection en ligne / hors-ligne</td><td>Événement réseau natif → bannière + blocage des actions financières</td></tr>
+              <tr><td>Journalisation locale</td><td><code>tauri-plugin-log</code> — diagnostic poste, rotation de fichiers</td></tr>
+              <tr><td>Futur : lecteur QR / code-barres / RFID</td><td>Plugin natif dédié exposé au front via une commande <code>invoke</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Durcissement</h3>
+        <ul>
+          <li><strong>Allowlist</strong> Tauri minimale : seulement les API réellement utilisées (store, updater, log, dialog d'impression).</li>
+          <li><strong>CSP stricte</strong> : <code>connect-src</code> limité à l'URL de l'API configurée ; pas de script distant.</li>
+          <li>Binaire et installateur <strong>signés</strong> (certificat Authenticode) — prérequis <code>DEC-19</code>.</li>
+          <li>Cible d'installation : <strong>NSIS</strong> → <code>LubriManager-Setup.exe</code> (per-machine, avec entrée « Ajout/Suppression de programmes »).</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+    <section class="sec" id="s7">
+      <h2><span class="num">07</span>Modèle de données</h2>
+      <div class="prose">
+        <p>Modèle relationnel normalisé. Séparation nette <strong>Client → Compte → Solde</strong> et <strong>Carte</strong> : la carte est un moyen d'accès, pas le portefeuille. Perdre une carte n'affecte ni le compte ni l'historique.</p>
+      </div>
+      <figure class="dgm">
+        <pre class="mermaid">
+%%{init:{'theme':'base','themeVariables':{'background':'#FBFAF6','primaryColor':'#FFFFFF','primaryTextColor':'#1B1E23','primaryBorderColor':'#12494A','lineColor':'#4C515A','fontFamily':'IBM Plex Mono'}}}%%
+erDiagram
+  CUSTOMER ||--|| ACCOUNT : "possède"
+  CUSTOMER ||--o{ CARD : "détient"
+  ACCOUNT ||--o{ CARD : "accessible par"
+  ACCOUNT ||--o{ TRANSACTION : "journal"
+  TRANSACTION |o--|| RECHARGE : "détaille"
+  TRANSACTION |o--|| SALE : "détaille"
+  TRANSACTION ||--o| TRANSACTION : "contre-passe"
+  SALE ||--|{ SALE_ITEM : "lignes"
+  PRODUCT ||--o{ SALE_ITEM : "vendu dans"
+  CATEGORY ||--o{ PRODUCT : "classe"
+  PRODUCT ||--o{ INVENTORY_MOVEMENT : "mouvemente"
+  SALE |o--o{ INVENTORY_MOVEMENT : "génère sortie"
+  PAYMENT_METHOD ||--o{ RECHARGE : "réglée par"
+  USER ||--o{ TRANSACTION : "opère"
+  USER ||--o{ AUDIT_LOG : "agit"
+  USER }o--|| ROLE : "porte"
+  USER ||--o{ REFRESH_TOKEN : "session"
+  USER ||--o{ NOTIFICATION : "destinataire"
+        </pre>
+        <figcaption>fig. 07-1 — Schéma entité-association (cœur)</figcaption>
+      </figure>
+      <div class="prose">
+        <div class="decision"><span class="tag">DEC-01 — bloquant</span>
+          <p><strong>Cardinalité compte.</strong> Un client possède-t-il exactement un compte, ou plusieurs (ex. par site, par famille de produits) ?</p>
+          <p class="reco"><b>Recommandation :</b> <strong>1 client = 1 compte</strong> en v1, N cartes pointant vers ce compte. Le multi-comptes est une évolution ; le schéma garde <code>account.customer_id</code> non-unique techniquement mais contraint applicativement, pour ne pas bloquer l'évolution.</p>
+        </div>
+        <div class="decision"><span class="tag">DEC-02</span>
+          <p><strong>Multi-agences.</strong> Le cahier des charges cite « plusieurs agences » en évolution. Introduire dès maintenant une colonne <code>branch_id</code> (avec une agence par défaut) évite une migration lourde plus tard.</p>
+          <p class="reco"><b>Recommandation :</b> ajouter <code>branch_id</code> dès la Phase 1 sur <code>user</code>, <code>card</code>, <code>transaction</code>, <code>inventory_movement</code>, valorisé à l'agence unique. Coût quasi nul, gain élevé.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+    <section class="sec" id="s8">
+      <h2><span class="num">08</span>Entités &amp; énumérations</h2>
+      <div class="bleed">
+        <table>
+          <caption>Entités principales</caption>
+          <thead><tr><th>Entité</th><th>Rôle</th><th>Champs clés</th><th>Notes d'intégrité</th></tr></thead>
+          <tbody>
+            <tr><td><code>user</code></td><td>Compte applicatif</td><td>username ᵁ, password_hash, full_name, role, active, last_login_at</td><td>BCrypt ; désactivation logique, pas de suppression</td></tr>
+            <tr><td><code>role</code></td><td>Rôle RBAC</td><td>code (ADMIN…), libellé</td><td>Table de référence ; permissions dérivées du code (§10)</td></tr>
+            <tr><td><code>customer</code></td><td>Client</td><td>customer_no ᵁ, full_name, company_name, phone, email, address, type, status, notes</td><td>Statut ∈ énum ; <code>customer_no</code> généré</td></tr>
+            <tr><td><code>account</code></td><td>Portefeuille prépayé</td><td>customer_id, balance <code>NUMERIC(15,2)</code>, currency='XOF', status, version</td><td><code>CHECK (balance &gt;= 0)</code> · <code>balance = trunc(balance)</code> · <code>@Version</code></td></tr>
+            <tr><td><code>card</code></td><td>Moyen d'accès au compte</td><td>card_no ᵁ, external_no, customer_id, account_id, status, issued_at, activated_at, expires_at</td><td><code>card_no</code> <strong>unique global</strong> ; une carte → un seul compte</td></tr>
+            <tr><td><code>category</code></td><td>Catégorie produit</td><td>name ᵁ, description</td><td></td></tr>
+            <tr><td><code>product</code></td><td>Lubrifiant / article</td><td>reference ᵁ, name, brand, category_id, unit, unit_price, stock_qty, alert_threshold, status</td><td><code>unit_price &gt;= 0</code> · <code>stock_qty &gt;= 0</code></td></tr>
+            <tr><td><code>transaction</code></td><td>Écriture au grand livre (ajout seul)</td><td>reference ᵁ, type, status, amount (signé), account_id, card_id, customer_id, user_id, balance_before, balance_after, related_txn_id, idempotency_key ᵁ, description, created_at</td><td>Jamais <code>DELETE</code> ; <code>UPDATE</code> limité aux transitions de <code>status</code> autorisées</td></tr>
+            <tr><td><code>recharge</code></td><td>Détail d'un crédit</td><td>reference ᵁ, transaction_id ᵁ, account_id, card_id, payment_method_id, amount, user_id, comment, status</td><td>1–1 avec sa transaction de type RECHARGE</td></tr>
+            <tr><td><code>sale</code></td><td>Détail d'un achat</td><td>reference ᵁ, transaction_id ᵁ, customer_id, card_id, user_id, subtotal, tax, total, status</td><td>1–1 avec sa transaction de type ACHAT</td></tr>
+            <tr><td><code>sale_item</code></td><td>Ligne d'achat</td><td>sale_id, product_id, quantity, unit_price (figé), line_total</td><td>Prix figé à la vente ; <code>line_total = quantity × unit_price</code></td></tr>
+            <tr><td><code>inventory_movement</code></td><td>Mouvement de stock</td><td>product_id, type, quantity (signé), stock_before, stock_after, reference, sale_id?, user_id, reason, created_at</td><td>Ajout seul ; toute sortie de vente y est tracée</td></tr>
+            <tr><td><code>payment_method</code></td><td>Moyen de paiement</td><td>code, label, active, sort_order</td><td>Paramétrable (ADMIN)</td></tr>
+            <tr><td><code>audit_log</code></td><td>Piste d'audit</td><td>user_id, action, entity_type, entity_id, old_value(JSONB), new_value(JSONB), ip, user_agent, created_at</td><td>Ajout seul ; rétention <code>DEC-16</code></td></tr>
+            <tr><td><code>notification</code></td><td>Alerte applicative</td><td>user_id?, type, severity, title, body, entity_ref, read_at, created_at</td><td></td></tr>
+            <tr><td><code>refresh_token</code></td><td>Session longue</td><td>user_id, token_hash ᵁ, expires_at, revoked_at, device</td><td>Hashé ; rotation à chaque refresh</td></tr>
+            <tr><td><code>reference_counter</code></td><td>Séquences de références</td><td>prefix, period (yyyymmdd), last_value</td><td>Verrou ligne à l'incrément</td></tr>
+            <tr><td><code>idempotency_record</code></td><td>Rejeu des opérations sensibles</td><td>key ᵁ, endpoint, request_hash, response_snapshot, status, created_at</td><td>Contrainte unique = garde anti-doublon</td></tr>
+            <tr><td><code>app_setting</code></td><td>Paramètres</td><td>key ᵁ, value, type, updated_by, updated_at</td><td>Seuils, TVA, plafonds, validations (§23)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="prose"><p class="lead" style="font-size:.85rem;font-family:'IBM Plex Mono',monospace;color:var(--ink-faint)">ᵁ = contrainte d'unicité en base</p></div>
+
+      <div class="bleed">
+        <table>
+          <caption>Énumérations</caption>
+          <thead><tr><th>Énumération</th><th>Valeurs</th></tr></thead>
+          <tbody>
+            <tr><td><code>CustomerStatus</code></td><td><span class="pill g">ACTIF</span> <span class="pill a">SUSPENDU</span> <span class="pill r">BLOQUE</span> <span class="pill n">ARCHIVE</span></td></tr>
+            <tr><td><code>CardStatus</code></td><td><span class="pill n">EN_ATTENTE</span> <span class="pill g">ACTIVE</span> <span class="pill a">SUSPENDUE</span> <span class="pill r">BLOQUEE</span> <span class="pill r">PERDUE</span> <span class="pill n">EXPIREE</span> <span class="pill n">DESACTIVEE</span></td></tr>
+            <tr><td><code>AccountStatus</code></td><td><span class="pill g">ACTIF</span> <span class="pill a">GELE</span> <span class="pill n">CLOS</span></td></tr>
+            <tr><td><code>TransactionType</code></td><td>RECHARGE · ACHAT · REMBOURSEMENT · ANNULATION · AJUSTEMENT · CORRECTION</td></tr>
+            <tr><td><code>TransactionStatus</code></td><td><span class="pill n">EN_ATTENTE</span> <span class="pill g">VALIDEE</span> <span class="pill r">REFUSEE</span> <span class="pill a">ANNULEE</span></td></tr>
+            <tr><td><code>InventoryMovementType</code></td><td>ENTREE · SORTIE · AJUSTEMENT · INVENTAIRE</td></tr>
+            <tr><td><code>PaymentMethod</code> (seed)</td><td>ESPECES · TMONEY · FLOOZ · VIREMENT · CHEQUE · AUTRE</td></tr>
+            <tr><td><code>Role</code></td><td>ADMIN · MANAGER · AGENT · AUDITEUR</td></tr>
+            <tr><td><code>NotificationSeverity</code></td><td><span class="pill n">INFO</span> <span class="pill a">ALERTE</span> <span class="pill r">CRITIQUE</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+    <section class="sec" id="s9">
+      <h2><span class="num">09</span>Relations &amp; règles d'intégrité référentielle</h2>
+      <div class="bleed">
+        <table>
+          <caption>Relations et cardinalités</caption>
+          <thead><tr><th>Relation</th><th>Card.</th><th>Suppression</th><th>Règle</th></tr></thead>
+          <tbody>
+            <tr><td>customer → account</td><td>1 : 1</td><td><code>RESTRICT</code></td><td>Compte créé avec le client ; jamais supprimé (client archivé à la place)</td></tr>
+            <tr><td>customer → card</td><td>1 : N</td><td><code>RESTRICT</code></td><td>Une carte perdue est <em>désactivée</em>, pas supprimée</td></tr>
+            <tr><td>account → card</td><td>1 : N</td><td><code>RESTRICT</code></td><td>Toutes les cartes d'un client pointent vers son unique compte</td></tr>
+            <tr><td>account → transaction</td><td>1 : N</td><td><code>RESTRICT</code></td><td>Journal en ajout seul ; aucune purge</td></tr>
+            <tr><td>transaction ↔ recharge / sale</td><td>1 : 0..1</td><td><code>RESTRICT</code></td><td>Détail métier rattaché à l'écriture ; créés dans la même transaction BD</td></tr>
+            <tr><td>transaction → transaction (related)</td><td>auto-réf.</td><td><code>RESTRICT</code></td><td>Une ANNULATION référence l'écriture d'origine ; l'origine passe <code>ANNULEE</code></td></tr>
+            <tr><td>sale → sale_item</td><td>1 : N</td><td><code>CASCADE</code></td><td>Lignes indissociables de leur vente</td></tr>
+            <tr><td>product → sale_item</td><td>1 : N</td><td><code>RESTRICT</code></td><td>Un produit vendu au moins une fois ne peut être supprimé (désactivé)</td></tr>
+            <tr><td>product → inventory_movement</td><td>1 : N</td><td><code>RESTRICT</code></td><td>Historique de stock permanent</td></tr>
+            <tr><td>category → product</td><td>1 : N</td><td><code>RESTRICT</code></td><td>Catégorie non supprimable si utilisée</td></tr>
+            <tr><td>user → transaction / audit_log</td><td>1 : N</td><td><code>RESTRICT</code></td><td>L'auteur d'une opération reste toujours identifiable</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="prose">
+        <div class="rule"><span class="tag">Invariant de solde — RG-00</span>
+          <p>Pour tout compte : <code>account.balance == Σ transaction.amount</code> pour les transactions <code>status = VALIDEE</code> de ce compte. Toute écriture financière met à jour les deux dans la même transaction BD. Un job planifié (§16) recalcule et alerte en cas d'écart.</p>
+        </div>
+        <p><strong>Index principaux :</strong> <code>card(card_no)</code>, <code>customer(customer_no)</code>, <code>customer(phone)</code>, <code>transaction(reference)</code>, <code>transaction(account_id, created_at)</code>, <code>transaction(type, status, created_at)</code>, <code>transaction(idempotency_key)</code>, <code>product(reference)</code>, <code>inventory_movement(product_id, created_at)</code>, <code>audit_log(entity_type, entity_id)</code>, <code>audit_log(created_at)</code>.</p>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+    <section class="sec" id="s10">
+      <h2><span class="num">10</span>Rôles &amp; permissions (RBAC)</h2>
+      <div class="prose">
+        <p>Quatre rôles. L'autorisation est appliquée au niveau des méthodes de service (<code>@PreAuthorize</code>), <strong>en plus</strong> du filtrage d'URL. Un appel direct à l'API sans passer par React est soumis exactement aux mêmes contrôles.</p>
+      </div>
+      <div class="bleed">
+        <table>
+          <caption>Matrice capacités × rôles &nbsp;—&nbsp; <span class="yes">●</span> autorisé &nbsp; <span class="part">◐</span> partiel/limité &nbsp; <span class="no">○</span> refusé</caption>
+          <thead><tr><th>Capacité</th><th>ADMIN</th><th>MANAGER</th><th>AGENT</th><th>AUDITEUR</th></tr></thead>
+          <tbody>
+            <tr><td>Se connecter / rafraîchir la session</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td></tr>
+            <tr><td>Tableau de bord global (indicateurs, statistiques)</td><td class="yes">●</td><td class="yes">●</td><td class="part">◐</td><td class="yes">●</td></tr>
+            <tr><td>Rechercher / consulter clients, cartes, comptes</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td></tr>
+            <tr><td>Créer / modifier un client</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="no">○</td></tr>
+            <tr><td>Archiver / bloquer un client</td><td class="yes">●</td><td class="yes">●</td><td class="no">○</td><td class="no">○</td></tr>
+            <tr><td>Créer / activer une carte</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="no">○</td></tr>
+            <tr><td>Suspendre / bloquer / déclarer perdue une carte</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="no">○</td></tr>
+            <tr><td>Désactiver définitivement / remplacer une carte</td><td class="yes">●</td><td class="yes">●</td><td class="no">○</td><td class="no">○</td></tr>
+            <tr><td>Effectuer une recharge</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="no">○</td></tr>
+            <tr><td>Valider / refuser une recharge en attente</td><td class="yes">●</td><td class="yes">●</td><td class="no">○</td><td class="no">○</td></tr>
+            <tr><td>Enregistrer une vente</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="no">○</td></tr>
+            <tr><td>Demander une annulation / contre-passation</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="no">○</td></tr>
+            <tr><td>Valider / exécuter une annulation</td><td class="yes">●</td><td class="yes">●</td><td class="no">○</td><td class="no">○</td></tr>
+            <tr><td>Ajustement manuel de solde (avec motif)</td><td class="yes">●</td><td class="no">○</td><td class="no">○</td><td class="no">○</td></tr>
+            <tr><td>Supprimer une transaction</td><td class="no">○</td><td class="no">○</td><td class="no">○</td><td class="no">○</td></tr>
+            <tr><td>Gérer produits, catégories, prix</td><td class="yes">●</td><td class="yes">●</td><td class="no">○</td><td class="no">○</td></tr>
+            <tr><td>Mouvements de stock (entrée, ajustement, inventaire)</td><td class="yes">●</td><td class="yes">●</td><td class="no">○</td><td class="no">○</td></tr>
+            <tr><td>Générer / exporter les rapports</td><td class="yes">●</td><td class="yes">●</td><td class="part">◐</td><td class="yes">●</td></tr>
+            <tr><td>Consulter les journaux d'audit</td><td class="yes">●</td><td class="yes">●</td><td class="no">○</td><td class="yes">●</td></tr>
+            <tr><td>Gérer les utilisateurs, rôles, permissions</td><td class="yes">●</td><td class="no">○</td><td class="no">○</td><td class="no">○</td></tr>
+            <tr><td>Modifier les paramètres (paiement, seuils, TVA…)</td><td class="yes">●</td><td class="part">◐</td><td class="no">○</td><td class="no">○</td></tr>
+            <tr><td>Imprimer reçus / factures</td><td class="yes">●</td><td class="yes">●</td><td class="yes">●</td><td class="part">◐</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="prose">
+        <p><strong>AGENT — tableau de bord réduit :</strong> ses propres opérations du jour, encaissements par moyen de paiement, alertes stock. Pas d'accès au chiffre d'affaires global ni à l'activité des autres agents.</p>
+        <p><strong>AGENT — rapports :</strong> uniquement son rapport de caisse personnel et la réimpression de ses reçus.</p>
+        <div class="decision"><span class="tag">DEC-03 — bloquant</span>
+          <p><strong>Validation des opérations sensibles.</strong> Quelles opérations exigent l'aval d'un MANAGER, et selon quel seuil (montant) ? Le workflow est-il <em>bloquant</em> (l'agent attend) ou <em>asynchrone</em> (opération en <code>EN_ATTENTE</code>, effet différé) ?</p>
+          <p class="reco"><b>Recommandation :</b> asynchrone. Recharge &gt; seuil <code>app_setting</code> et toute annulation ⇒ <code>EN_ATTENTE</code> jusqu'à validation MANAGER ; en dessous du seuil, effet immédiat. Seuil configurable, défaut à définir.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+    <section class="sec" id="s11">
+      <h2><span class="num">11</span>Catalogue des règles de gestion</h2>
+      <div class="bleed">
+        <table>
+          <caption>Règles de gestion (extrait consolidé)</caption>
+          <thead><tr><th>#</th><th>Règle</th><th>Contrôle</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">RG-01</td><td>Un numéro de carte est unique dans tout le système et ne peut être réassigné à un autre client.</td><td>Contrainte <code>UNIQUE</code> + vérif service</td></tr>
+            <tr><td class="mono">RG-02</td><td>Une carte doit être <code>ACTIVE</code> pour toute opération financière. Toute autre statut ⇒ refus.</td><td>Garde service, 422</td></tr>
+            <tr><td class="mono">RG-03</td><td>Le client rattaché doit être <code>ACTIF</code>. <code>SUSPENDU/BLOQUE/ARCHIVE</code> ⇒ refus.</td><td>Garde service, 422</td></tr>
+            <tr><td class="mono">RG-04</td><td>Montant de recharge strictement positif, entier FCFA, ≤ plafond paramétré.</td><td>Bean Validation + <code>app_setting</code></td></tr>
+            <tr><td class="mono">RG-05</td><td>Une vente n'est validée que si <code>solde ≥ total</code>. Sinon : transaction refusée, solde et stock inchangés.</td><td>Garde service, 422 + audit</td></tr>
+            <tr><td class="mono">RG-06</td><td>Chaque ligne de vente a une quantité &gt; 0 et un stock disponible suffisant au moment de la validation.</td><td>Verrou produit + garde</td></tr>
+            <tr><td class="mono">RG-07</td><td>Le prix unitaire est figé à l'instant de la vente (copié dans <code>sale_item</code>).</td><td>Copie en service</td></tr>
+            <tr><td class="mono">RG-08</td><td>Toute référence (transaction, recharge, vente, annulation) est unique et générée par le backend.</td><td><code>reference_counter</code> verrouillé</td></tr>
+            <tr><td class="mono">RG-09</td><td>Une opération sensible portant la même <code>Idempotency-Key</code> qu'une opération réussie renvoie le résultat initial sans ré-exécuter.</td><td><code>idempotency_record</code> unique</td></tr>
+            <tr><td class="mono">RG-10</td><td>Une transaction <code>VALIDEE</code> n'est jamais supprimée ni modifiée sur le fond ; correction = transaction d'ANNULATION liée.</td><td>Pas d'endpoint <code>DELETE</code> ; transitions contrôlées</td></tr>
+            <tr><td class="mono">RG-11</td><td>Une annulation exige un motif non vide et un valideur habilité (MANAGER/ADMIN).</td><td>Garde service</td></tr>
+            <tr><td class="mono">RG-12</td><td>L'annulation d'une vente restitue les quantités au stock via un mouvement <code>ENTREE</code> tracé.</td><td>Même transaction BD</td></tr>
+            <tr><td class="mono">RG-13</td><td>L'ajustement manuel de solde est réservé à ADMIN, exige un motif, crée une transaction <code>AJUSTEMENT</code> et une entrée d'audit.</td><td><code>@PreAuthorize</code> + audit obligatoire</td></tr>
+            <tr><td class="mono">RG-14</td><td>Le passage du stock d'un produit sous son seuil d'alerte déclenche une notification.</td><td>Événement post-commit</td></tr>
+            <tr><td class="mono">RG-15</td><td>Un client, une carte, un produit « utilisés » ne sont jamais supprimés : désactivation logique.</td><td><code>RESTRICT</code> + statut</td></tr>
+            <tr><td class="mono">RG-16</td><td>Toute écriture financière enregistre <code>balance_before</code> et <code>balance_after</code>.</td><td>Service</td></tr>
+            <tr><td class="mono">RG-17</td><td>Un utilisateur désactivé ne peut plus s'authentifier ; ses tokens de rafraîchissement sont révoqués.</td><td>Filtre + révocation</td></tr>
+            <tr><td class="mono">RG-18</td><td>Une carte <code>EXPIREE</code> (date d'expiration atteinte) est passée automatiquement à ce statut par un batch quotidien ; le solde reste au compte.</td><td>Tâche planifiée</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+    <section class="sec" id="s12">
+      <h2><span class="num">12</span>Flux de recharge</h2>
+      <figure class="dgm">
+        <pre class="mermaid">
+%%{init:{'theme':'base','themeVariables':{'background':'#FBFAF6','primaryColor':'#FFFFFF','primaryTextColor':'#1B1E23','primaryBorderColor':'#12494A','lineColor':'#4C515A','secondaryColor':'#F3E7D2','fontFamily':'IBM Plex Sans'}}}%%
+flowchart TD
+  A["Agent : sélection carte + montant + moyen de paiement"] --> B["POST /api/recharges<br/>+ Idempotency-Key"]
+  B --> C{Clé déjà vue ?}
+  C -- oui --> C2["Renvoyer le résultat mémorisé"]:::done
+  C -- non --> D["@Transactional — début"]
+  D --> E["Verrou pessimiste sur account (FOR UPDATE)"]
+  E --> F{Carte ACTIVE ?<br/>Client ACTIF ?<br/>Montant valide ?}
+  F -- non --> X["Rollback · 422 message clair · audit refus"]:::stop
+  F -- oui --> G["balance_before = solde<br/>balance_after = solde + montant"]
+  G --> H{Montant &gt; seuil validation ?}
+  H -- oui --> I["Transaction RECHARGE = EN_ATTENTE<br/>solde inchangé"]:::wait
+  H -- non --> J["Transaction RECHARGE = VALIDEE<br/>account.balance = balance_after"]:::done
+  I --> K["Créer recharge + référence RECH-…"]
+  J --> K
+  K --> L["Audit · idempotency_record · événement notification"]
+  L --> M["Commit → reçu imprimable"]:::done
+  classDef done fill:#E3F0E8,stroke:#2E7D52,color:#14342a;
+  classDef wait fill:#F3E7D2,stroke:#9A6C18,color:#4a3a12;
+  classDef stop fill:#F4E0E0,stroke:#AE3838,color:#4a1f1f;
+        </pre>
+        <figcaption>fig. 12-1 — Recharge : chemin nominal, refus, mise en attente</figcaption>
+      </figure>
+      <pre class="block"><span class="c">// recharge/RechargeService.java — cœur de la logique</span>
+<span class="k">@Transactional</span>
+<span class="k">public</span> RechargeResult recharge(RechargeCommand cmd, String idemKey, UserRef actor) {
+
+  <span class="c">// RG-09 : garde d'idempotence</span>
+  var replay = idempotency.find(idemKey);
+  <span class="k">if</span> (replay.isPresent()) <span class="k">return</span> replay.get().as(RechargeResult.class);
+
+  <span class="c">// DEC-01 : un compte par client — verrou pessimiste</span>
+  Account acc = accountRepo.lockByCardNo(cmd.cardNo())       <span class="c">// SELECT ... FOR UPDATE</span>
+      .orElseThrow(() -&gt; new NotFoundException(<span class="b">"Carte introuvable"</span>));
+  Card card = acc.cardByNo(cmd.cardNo());
+
+  <span class="c">// RG-02 / RG-03 / RG-04</span>
+  require(card.status() == ACTIVE,        <span class="b">"Carte non active"</span>);
+  require(acc.customer().status() == ACTIF, <span class="b">"Client non actif"</span>);
+  require(cmd.amount().signum() &gt; 0 &amp;&amp; cmd.amount().compareTo(maxRecharge()) &lt;= 0,
+                                         <span class="b">"Montant invalide"</span>);
+
+  Money before = acc.balance();
+  Money after  = before.plus(cmd.amount());
+  boolean pending = cmd.amount().compareTo(approvalThreshold()) &gt; 0;  <span class="c">// DEC-03</span>
+
+  Transaction txn = Transaction.recharge(acc, card, actor, cmd.amount(),
+      before, after, pending ? EN_ATTENTE : VALIDEE,
+      references.next(<span class="b">"RECH"</span>), idemKey);
+
+  <span class="k">if</span> (!pending) acc.setBalance(after);          <span class="c">// RG-16 · invariant RG-00</span>
+
+  Recharge rec = Recharge.of(txn, cmd.paymentMethodId(), cmd.comment(), actor);
+  txnRepo.save(txn); rechargeRepo.save(rec);
+
+  audit.record(RECHARGE, actor, acc, before, after);
+  var result = RechargeResult.from(txn, rec);
+  idempotency.store(idemKey, <span class="b">"/api/recharges"</span>, cmd.hash(), result);
+  events.publish(new RechargeCompleted(txn.id(), pending));
+  <span class="k">return</span> result;
+  <span class="c">// toute exception ⇒ rollback total : rien n'est écrit</span>
+}</pre>
+    </section>
+
+    <!-- ============================================================= -->
+    <section class="sec" id="s13">
+      <h2><span class="num">13</span>Flux de vente</h2>
+      <div class="prose">
+        <p>La vente est l'opération multi-ressources critique : elle touche compte, transaction, stock et mouvements de stock. Les quatre écritures réussissent ou échouent <strong>ensemble</strong>.</p>
+      </div>
+      <figure class="dgm">
+        <pre class="mermaid">
+%%{init:{'theme':'base','themeVariables':{'background':'#FBFAF6','primaryColor':'#FFFFFF','primaryTextColor':'#1B1E23','primaryBorderColor':'#12494A','lineColor':'#4C515A','secondaryColor':'#F3E7D2','fontFamily':'IBM Plex Sans'}}}%%
+flowchart TD
+  A["Agent : carte + panier (produits, quantités)"] --> B["POST /api/sales + Idempotency-Key"]
+  B --> C{Clé déjà vue ?}
+  C -- oui --> R["Renvoyer résultat mémorisé"]:::done
+  C -- non --> D["@Transactional — début"]
+  D --> E["Verrou account (FOR UPDATE)"]
+  E --> F["Verrou de chaque produit, trié par id<br/>(évite les inter-blocages)"]
+  F --> G{Carte ACTIVE · client ACTIF ·<br/>quantités &gt; 0 · stock suffisant ?}
+  G -- non --> X["Rollback · 422 · audit"]:::stop
+  G -- oui --> H["Calcul lignes → sous-total → (TVA ?) → total"]
+  H --> I{solde ≥ total ?}
+  I -- non --> Y["Rollback · 422 « solde insuffisant » · audit ACHAT_REFUSE"]:::stop
+  I -- oui --> J["1· account.balance -= total<br/>2· Transaction ACHAT = VALIDEE (montant = -total)<br/>3· sale + sale_items (prix figés)<br/>4· pour chaque produit : stock -= qté + mouvement SORTIE"]
+  J --> K["Audit · idempotency · événement (stock bas ?)"]
+  K --> L["Commit → reçu / facture"]:::done
+  classDef done fill:#E3F0E8,stroke:#2E7D52,color:#14342a;
+  classDef stop fill:#F4E0E0,stroke:#AE3838,color:#4a1f1f;
+        </pre>
+        <figcaption>fig. 13-1 — Vente : validation, calcul, débit atomique, mise à jour du stock</figcaption>
+      </figure>
+      <div class="prose">
+        <h4>Exemple (cahier des charges §17)</h4>
+        <div class="bleed"><table>
+          <thead><tr><th>Élément</th><th>Valeur</th></tr></thead>
+          <tbody>
+            <tr><td>Produit</td><td>Huile moteur 20W50 — 10 × 8 500 FCFA</td></tr>
+            <tr><td class="mono">line_total</td><td class="mono">85 000 FCFA</td></tr>
+            <tr><td class="mono">balance_before</td><td class="mono">350 000 FCFA</td></tr>
+            <tr><td class="mono">balance_after</td><td class="mono">265 000 FCFA</td></tr>
+            <tr><td class="mono">transaction.amount</td><td class="mono">−85 000</td></tr>
+            <tr><td>Stock 20W50</td><td class="mono">250 → 240</td> </tr>
+          </tbody>
+        </table></div>
+        <div class="decision"><span class="tag">DEC-04 — bloquant</span>
+          <p><strong>TVA / fiscalité.</strong> Les prix produits sont-ils TTC ou HT ? La TVA (18 % au Togo) doit-elle apparaître sur la facture ? Un numéro de facture normalisée / conformité fiscale est-il requis ?</p>
+          <p class="reco"><b>Recommandation :</b> trancher avant la Phase 6. Par défaut : prix <strong>TTC</strong>, champ <code>tax</code> calculé et affiché pour information, séquence de facture distincte de la référence de vente si la conformité l'exige.</p>
+        </div>
+        <div class="decision"><span class="tag">DEC-05</span>
+          <p><strong>Trace des ventes refusées.</strong> Un refus pour solde insuffisant crée-t-il une <code>transaction</code> de statut <code>REFUSEE</code>, ou seulement une entrée d'audit ?</p>
+          <p class="reco"><b>Recommandation :</b> <strong>audit seul</strong> (action <code>ACHAT_REFUSE</code>) écrit dans une transaction BD indépendante. Le grand livre ne contient que des écritures <code>VALIDEE</code>/<code>ANNULEE</code>. Un rapport « tentatives refusées » est alimenté par l'audit.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+    <section class="sec" id="s14">
+      <h2><span class="num">14</span>Flux d'annulation / contre-passation</h2>
+      <div class="prose">
+        <p>Aucune suppression physique. Une correction crée une <strong>écriture inverse</strong> liée à l'originale, qui reste visible et passe au statut <code>ANNULEE</code>.</p>
+      </div>
+      <figure class="dgm">
+        <pre class="mermaid">
+%%{init:{'theme':'base','themeVariables':{'background':'#FBFAF6','primaryColor':'#FFFFFF','primaryTextColor':'#1B1E23','primaryBorderColor':'#12494A','lineColor':'#4C515A','secondaryColor':'#F3E7D2','fontFamily':'IBM Plex Sans'}}}%%
+flowchart TD
+  A["Transaction d'origine (VALIDEE)"] --> B["Demande d'annulation<br/>motif obligatoire — RG-11"]
+  B --> C{Valideur habilité ?<br/>MANAGER / ADMIN}
+  C -- non --> Z["403 — refusé"]:::stop
+  C -- oui --> D["@Transactional — verrou account"]
+  D --> E{Origine encore VALIDEE ?<br/>Pas déjà contre-passée ?}
+  E -- non --> Z2["409 — état incohérent"]:::stop
+  E -- oui --> F["Transaction ANNULATION = VALIDEE<br/>montant = − montant origine<br/>related_txn_id = origine · réf ANNL-…"]
+  F --> G["account.balance += montant inverse"]
+  G --> H["origine.status = ANNULEE · origine.reversed_by = annulation.id"]
+  H --> I{Origine = ACHAT ?}
+  I -- oui --> J["Restock : mouvement ENTREE par produit<br/>motif « Annulation VENT-… » — RG-12"]
+  I -- non --> K
+  J --> K["Audit des deux écritures · notification"]
+  K --> L["Commit — historique intégralement conservé"]:::done
+  classDef done fill:#E3F0E8,stroke:#2E7D52,color:#14342a;
+  classDef stop fill:#F4E0E0,stroke:#AE3838,color:#4a1f1f;
+        </pre>
+        <figcaption>fig. 14-1 — Contre-passation : l'originale est conservée, une écriture inverse est ajoutée</figcaption>
+      </figure>
+      <div class="prose">
+        <div class="rule"><span class="tag">Règle d'or n°2 — intégrité</span>
+          <p>Le solde n'est jamais « remis à la main ». Il ne bouge que par une transaction <code>VALIDEE</code>. Une erreur se corrige par une nouvelle écriture, jamais par un <code>UPDATE</code> ou un <code>DELETE</code> sur l'historique.</p>
+        </div>
+        <div class="decision"><span class="tag">DEC-06</span>
+          <p><strong>Annulation partielle.</strong> Autorise-t-on l'annulation d'une seule ligne de vente, ou uniquement l'annulation totale d'une transaction ?</p>
+          <p class="reco"><b>Recommandation :</b> annulation <strong>totale uniquement</strong> en v1 ; ré-effectuer une vente corrigée si besoin. L'annulation partielle multiplie les cas limites (stock, arrondis, TVA).</p>
+        </div>
+        <div class="decision"><span class="tag">DEC-07</span>
+          <p><strong>REMBOURSEMENT vs ANNULATION.</strong> Le type <code>REMBOURSEMENT</code> (§21 du cahier) désigne-t-il un retour d'argent hors caisse (espèces rendues), distinct de la contre-passation comptable ?</p>
+          <p class="reco"><b>Recommandation :</b> <code>ANNULATION</code> = correction d'erreur (recrédite le compte) ; <code>REMBOURSEMENT</code> = sortie de valeur du compte vers un moyen de paiement (client quitte le système). À confirmer.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+    <section class="sec" id="s15">
+      <h2><span class="num">15</span>Stratégie d'intégrité financière</h2>
+      <div class="prose">
+        <div class="grid2">
+          <div class="panel">
+            <h4>Atomicité</h4>
+            <ul>
+              <li>Une opération = une méthode <code>@Transactional</code> unique. Débit + transaction + stock + mouvement dans la même unité de travail.</li>
+              <li>Toute exception (métier ou technique) ⇒ <code>ROLLBACK</code> complet. Aucune écriture partielle.</li>
+              <li>Isolation <code>READ COMMITTED</code> (défaut PostgreSQL) + verrous explicites là où il faut.</li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h4>Concurrence</h4>
+            <ul>
+              <li>Verrou pessimiste <code>SELECT … FOR UPDATE</code> sur la ligne <code>account</code> pour toute écriture de solde.</li>
+              <li>Verrou des produits d'une vente <strong>triés par id</strong> — ordre déterministe, pas d'inter-blocage.</li>
+              <li><code>@Version</code> sur <code>account</code> comme filet de sécurité (détecte une modification concurrente non verrouillée).</li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h4>Idempotence (RG-09)</h4>
+            <ul>
+              <li>En-tête <code>Idempotency-Key</code> (UUID) obligatoire sur recharge, vente, annulation.</li>
+              <li>Contrainte <code>UNIQUE</code> sur <code>idempotency_record.key</code> : la 2ᵉ tentative échoue à l'insert et renvoie le résultat mémorisé.</li>
+              <li>Le hash de la requête est comparé : même clé + charge différente ⇒ 409.</li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h4>Cohérence du solde</h4>
+            <ul>
+              <li>Invariant RG-00 : <code>balance == Σ(transactions VALIDEE)</code>.</li>
+              <li>Job de réconciliation nocturne : recalcul par compte, alerte <code>CRITIQUE</code> en cas d'écart, blocage optionnel du compte.</li>
+              <li><code>balance_before</code>/<code>balance_after</code> sur chaque écriture ⇒ rejouabilité du grand livre.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="rule"><span class="tag">Garde-fous base de données</span>
+          <p><code>CHECK (balance &gt;= 0)</code> · <code>CHECK (balance = trunc(balance))</code> · <code>CHECK (stock_qty &gt;= 0)</code> · <code>UNIQUE(card_no)</code> · <code>UNIQUE(transaction.reference)</code> · <code>UNIQUE(idempotency_record.key)</code> · FK en <code>RESTRICT</code>. La base refuse une incohérence même si un bug applicatif la laisse passer.</p>
+        </div>
+        <div class="decision"><span class="tag">DEC-08</span>
+          <p><strong>Découvert autorisé.</strong> Un client « de confiance » peut-il passer temporairement en solde négatif (plafond de crédit) ? Le cahier des charges impose le refus par défaut.</p>
+          <p class="reco"><b>Recommandation :</b> <strong>aucun découvert</strong> en v1 (<code>CHECK balance &gt;= 0</code>). Si un crédit client est souhaité, le modéliser explicitement plus tard (champ <code>credit_limit</code>), pas par un solde négatif silencieux.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+    <section class="sec" id="s16">
+      <h2><span class="num">16</span>Audit &amp; traçabilité</h2>
+      <div class="prose">
+        <p>Deux niveaux complémentaires :</p>
+        <ol>
+          <li><strong>Grand livre</strong> (<code>transaction</code>, <code>inventory_movement</code>) — la vérité métier, en ajout seul, avec référence, auteur, soldes/stocks avant-après.</li>
+          <li><strong>Piste d'audit</strong> (<code>audit_log</code>) — le « qui a fait quoi, quand, depuis où » sur toute action importante, y compris les consultations sensibles et les échecs.</li>
+        </ol>
+        <h4>Contenu d'une entrée d'audit</h4>
+        <div class="bleed"><table>
+          <thead><tr><th>Champ</th><th>Exemple</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">user</td><td>jkomlan (AGENT)</td></tr>
+            <tr><td class="mono">action</td><td>RECHARGE</td></tr>
+            <tr><td class="mono">entity_type / id</td><td>account / 4213</td></tr>
+            <tr><td class="mono">old_value / new_value</td><td><code>{"balance":"100000"}</code> → <code>{"balance":"350000"}</code></td></tr>
+            <tr><td class="mono">ref</td><td>RECH-20260903-000001 · carte CARD-000123</td></tr>
+            <tr><td class="mono">ip / user_agent</td><td>192.168.1.24 · LubriManager/1.0 (Windows)</td></tr>
+            <tr><td class="mono">created_at</td><td>2026-09-03 14:32:07 +00</td></tr>
+          </tbody>
+        </table></div>
+        <h4>Mise en œuvre</h4>
+        <ul>
+          <li><strong>Écriture explicite</strong> depuis les services pour les faits métier (recharge, vente, annulation, ajustement, changement de statut, connexion) — l'audit fait partie de la même transaction que l'action.</li>
+          <li><strong>Écoute JPA</strong> (<code>@EntityListeners</code>) en complément pour capter les modifications d'entités de référence (produit, prix, utilisateur).</li>
+          <li><code>old_value</code>/<code>new_value</code> en <code>JSONB</code> — requêtable, diff lisible côté UI.</li>
+          <li>Actions <strong>jamais</strong> auditées silencieusement : suppression (inexistante), ajustement de solde, changement de rôle, export de rapport.</li>
+        </ul>
+        <div class="decision"><span class="tag">DEC-16</span>
+          <p><strong>Rétention.</strong> Durée de conservation des <code>audit_log</code> et des notifications ? Archivage froid au-delà ?</p>
+          <p class="reco"><b>Recommandation :</b> audit conservé <strong>≥ 5 ans</strong> en ligne (obligations comptables), notifications purgées après 12 mois. À confirmer avec le comptable de l'entreprise.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+    <section class="sec" id="s17">
+      <h2><span class="num">17</span>Stratégie de sécurité</h2>
+      <div class="prose">
+        <h3>Authentification</h3>
+        <ul>
+          <li><strong>Spring Security</strong> + filtre JWT sans état. <code>POST /api/auth/login</code> renvoie un <em>access token</em> court (≈ 15 min) et un <em>refresh token</em> long (≈ 7 j, <code>DEC-15</code>).</li>
+          <li><strong>Rotation</strong> du refresh token à chaque <code>/refresh</code> ; l'ancien est révoqué (<code>refresh_token.revoked_at</code>). Détection de rejeu ⇒ révocation de toute la famille.</li>
+          <li><strong>Stockage poste</strong> : access token en mémoire React ; refresh token chiffré via keychain OS (Tauri). Jamais dans <code>localStorage</code>.</li>
+          <li><code>POST /api/auth/logout</code> révoque le refresh token courant.</li>
+          <li>Mots de passe : <strong>BCrypt</strong> (coût 12). Politique de complexité + verrouillage après N échecs — <code>DEC-14</code>.</li>
+        </ul>
+        <h3>Autorisation (RBAC)</h3>
+        <ul>
+          <li>Filtrage d'URL par rôle <em>et</em> <code>@PreAuthorize</code> au niveau des méthodes de service — double barrière.</li>
+          <li>Le rôle vient du token, re-vérifié à chaque requête ; un token d'un utilisateur désactivé est rejeté (RG-17).</li>
+          <li>Aucune décision d'autorisation n'est déléguée au front (§10).</li>
+        </ul>
+        <h3>Durcissement</h3>
+        <div class="bleed"><table>
+          <thead><tr><th>Surface</th><th>Mesure</th></tr></thead>
+          <tbody>
+            <tr><td>Transport</td><td>HTTPS obligatoire ; HSTS ; certificat valide (interne ou public selon <code>DEC-17</code>)</td></tr>
+            <tr><td>Entrées</td><td>Bean Validation sur tous les DTO ; rejet des champs inconnus ; bornes de pagination</td></tr>
+            <tr><td>Injection</td><td>JPA paramétré exclusivement ; aucun SQL concaténé</td></tr>
+            <tr><td>Brute force</td><td>Rate limiting sur <code>/auth/login</code> ; back-off ; verrouillage compte temporaire</td></tr>
+            <tr><td>CORS</td><td>Origines restreintes ; en desktop, l'appel vient de la WebView Tauri (origine <code>tauri://</code>)</td></tr>
+            <tr><td>Secrets</td><td>Variables d'environnement / coffre ; jamais commités ; clé de signature JWT ≥ 256 bits</td></tr>
+            <tr><td>Réponses d'erreur</td><td>Message générique côté client, détail technique en logs serveur uniquement (§44 du cahier)</td></tr>
+            <tr><td>Dépendances</td><td>Analyse de vulnérabilités (OWASP Dependency-Check / <code>npm audit</code>) en CI</td></tr>
+          </tbody>
+        </table></div>
+        <pre class="block"><span class="c">// Format d'erreur normalisé renvoyé au client</span>
+{
+  <span class="k">"timestamp"</span>: <span class="b">"2026-09-03T14:32:07Z"</span>,
+  <span class="k">"status"</span>: 422,
+  <span class="k">"code"</span>: <span class="b">"SOLDE_INSUFFISANT"</span>,
+  <span class="k">"message"</span>: <span class="b">"Le solde de la carte ne permet pas cette vente."</span>,
+  <span class="k">"reference"</span>: <span class="b">"req_01J9F2…"</span>   <span class="c">// corrélation avec les logs serveur</span>
+}</pre>
+        <div class="decision"><span class="tag">DEC-14</span><p><strong>Politique de mot de passe</strong> (longueur, complexité, expiration, nombre d'échecs avant verrouillage) — et <strong>double authentification</strong> souhaitée pour ADMIN/MANAGER ?</p><p class="reco"><b>Recommandation :</b> 10 caractères min, verrouillage 15 min après 5 échecs, pas d'expiration forcée, MFA différé (évolution).</p></div>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+    <section class="sec" id="s18">
+      <h2><span class="num">18</span>API REST</h2>
+      <div class="prose"><p>Ressources sous <code>/api</code>, versionnées via en-tête. Toutes documentées en OpenAPI (<code>/swagger-ui</code>). Pagination : <code>?page&amp;size&amp;sort</code>. Filtres : voir §31 du cahier. <strong>Aucun</strong> endpoint de suppression de transaction.</p></div>
+      <div class="bleed">
+        <table>
+          <caption>Endpoints (extrait) — rôle minimal requis</caption>
+          <thead><tr><th>Méthode &amp; chemin</th><th>Rôle</th><th>Objet</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">POST /api/auth/login</td><td>—</td><td>Authentification, renvoie les tokens</td></tr>
+            <tr><td class="mono">POST /api/auth/refresh</td><td>—</td><td>Rotation du token d'accès</td></tr>
+            <tr><td class="mono">POST /api/auth/logout</td><td>auth</td><td>Révoque le refresh token</td></tr>
+            <tr><td class="mono">GET&nbsp; /api/auth/me</td><td>auth</td><td>Profil + rôle courant</td></tr>
+            <tr><td class="mono">GET&nbsp; /api/users</td><td>ADMIN</td><td>Liste des utilisateurs</td></tr>
+            <tr><td class="mono">POST /api/users</td><td>ADMIN</td><td>Créer un utilisateur</td></tr>
+            <tr><td class="mono">PATCH /api/users/{id}/status</td><td>ADMIN</td><td>Activer / désactiver</td></tr>
+            <tr><td class="mono">GET&nbsp; /api/customers</td><td>tous</td><td>Recherche + filtres + pagination</td></tr>
+            <tr><td class="mono">POST /api/customers</td><td>AGENT</td><td>Créer un client (+ compte)</td></tr>
+            <tr><td class="mono">GET&nbsp; /api/customers/{id}</td><td>tous</td><td>Fiche client (§28)</td></tr>
+            <tr><td class="mono">PATCH /api/customers/{id}/status</td><td>MANAGER</td><td>Suspendre / bloquer / archiver</td></tr>
+            <tr><td class="mono">GET&nbsp; /api/cards</td><td>tous</td><td>Liste / recherche de cartes</td></tr>
+            <tr><td class="mono">POST /api/cards</td><td>AGENT</td><td>Créer une carte (unicité contrôlée)</td></tr>
+            <tr><td class="mono">PATCH /api/cards/{id}/status</td><td>AGENT*</td><td>activer / suspendre / bloquer / perdue ; <em>désactiver</em> ⇒ MANAGER</td></tr>
+            <tr><td class="mono">GET&nbsp; /api/cards/{id}/history</td><td>tous</td><td>Historique complet de la carte (§27)</td></tr>
+            <tr><td class="mono">GET&nbsp; /api/accounts/{id}</td><td>tous</td><td>Solde, totaux rechargé / consommé</td></tr>
+            <tr><td class="mono">POST /api/accounts/{id}/adjustment</td><td>ADMIN</td><td>Ajustement manuel (motif obligatoire) — RG-13</td></tr>
+            <tr><td class="mono">GET&nbsp; /api/products</td><td>tous</td><td>Catalogue + stock + seuils</td></tr>
+            <tr><td class="mono">POST/PUT /api/products</td><td>MANAGER</td><td>Créer / modifier (prix, seuil)</td></tr>
+            <tr><td class="mono">GET&nbsp; /api/categories</td><td>tous</td><td>Catégories</td></tr>
+            <tr><td class="mono">POST /api/recharges</td><td>AGENT</td><td>Recharge — <code>Idempotency-Key</code> requis</td></tr>
+            <tr><td class="mono">POST /api/recharges/{id}/validate</td><td>MANAGER</td><td>Valider une recharge en attente</td></tr>
+            <tr><td class="mono">POST /api/recharges/{id}/reject</td><td>MANAGER</td><td>Refuser une recharge en attente</td></tr>
+            <tr><td class="mono">POST /api/sales</td><td>AGENT</td><td>Vente — <code>Idempotency-Key</code> requis</td></tr>
+            <tr><td class="mono">GET&nbsp; /api/transactions</td><td>tous</td><td>Journal filtrable (§31)</td></tr>
+            <tr><td class="mono">GET&nbsp; /api/transactions/{id}</td><td>tous</td><td>Détail d'une écriture</td></tr>
+            <tr><td class="mono">POST /api/transactions/{id}/reversal</td><td>MANAGER</td><td>Contre-passation (motif obligatoire) — RG-11</td></tr>
+            <tr><td class="mono">GET&nbsp; /api/inventory/movements</td><td>tous</td><td>Mouvements de stock</td></tr>
+            <tr><td class="mono">POST /api/inventory/movements</td><td>MANAGER</td><td>Entrée / ajustement / inventaire</td></tr>
+            <tr><td class="mono">GET&nbsp; /api/inventory/low-stock</td><td>tous</td><td>Produits sous seuil</td></tr>
+            <tr><td class="mono">GET&nbsp; /api/reports/{type}</td><td>MANAGER / AUDITEUR</td><td><code>?from&amp;to&amp;format=pdf|xlsx</code> — ventes, recharges, transactions, stock, annulations, audit</td></tr>
+            <tr><td class="mono">GET&nbsp; /api/audit</td><td>MANAGER / AUDITEUR</td><td>Piste d'audit filtrable</td></tr>
+            <tr><td class="mono">GET&nbsp; /api/notifications</td><td>auth</td><td>Notifications de l'utilisateur</td></tr>
+            <tr><td class="mono">GET/PUT /api/payment-methods</td><td>ADMIN</td><td>Moyens de paiement paramétrables</td></tr>
+            <tr><td class="mono">GET/PUT /api/settings</td><td>ADMIN</td><td>Seuils, TVA, plafonds, fuseau</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+    <section class="sec" id="s19">
+      <h2><span class="num">19</span>Écrans React</h2>
+      <div class="bleed">
+        <table>
+          <caption>Écrans par module (menu §42)</caption>
+          <thead><tr><th>Module</th><th>Écrans</th><th>Actions rapides</th></tr></thead>
+          <tbody>
+            <tr><td>Tableau de bord</td><td>Vue synthèse (indicateurs, graphiques ventes jour/semaine/mois, top produits, top clients, activité agents, stock faible)</td><td>+ Recharge · + Vente · + Client · + Carte</td></tr>
+            <tr><td>Clients</td><td>Liste filtrable · Fiche client (cartes, solde total, total rechargé/consommé, historique) · Formulaire créer/éditer</td><td>Nouvelle carte · Nouvelle recharge</td></tr>
+            <tr><td>Cartes</td><td>Liste · Fiche carte (solde, total rechargé, total consommé, dernière recharge, dernier achat, historique) · Assistant de création (recherche client → n° → unicité → activation)</td><td>Suspendre · Bloquer · Déclarer perdue · Remplacer</td></tr>
+            <tr><td>Comptes</td><td>Détail compte · Journal du compte · Ajustement (ADMIN, modal avec motif)</td><td>—</td></tr>
+            <tr><td>Recharges</td><td>Liste · Assistant recharge (carte → montant → moyen de paiement → confirmation → reçu) · File d'attente de validation (MANAGER)</td><td>Imprimer reçu</td></tr>
+            <tr><td>Transactions</td><td>Journal global filtrable · Détail transaction · Modal d'annulation (motif)</td><td>Exporter</td></tr>
+            <tr><td>Ventes</td><td>Point de vente (scan/saisie carte → panier → total → validation → reçu/facture) · Liste des ventes · Détail vente</td><td>Réimprimer</td></tr>
+            <tr><td>Produits</td><td>Catalogue · Fiche produit · Formulaire (prix, seuil, catégorie) · Catégories</td><td>Entrée de stock</td></tr>
+            <tr><td>Stock</td><td>État du stock · Mouvements · Saisie d'inventaire · Alertes seuil</td><td>Ajustement</td></tr>
+            <tr><td>Rapports</td><td>Générateur (type, période, filtres) · Aperçu · Export PDF / Excel</td><td>—</td></tr>
+            <tr><td>Utilisateurs</td><td>Liste · Formulaire · Attribution de rôle · Activation/désactivation (ADMIN)</td><td>—</td></tr>
+            <tr><td>Audit</td><td>Journal d'audit filtrable · Détail (diff old/new)</td><td>Exporter</td></tr>
+            <tr><td>Notifications</td><td>Centre de notifications · Marquer comme lu</td><td>—</td></tr>
+            <tr><td>Paramètres</td><td>Moyens de paiement · Seuils &amp; plafonds · TVA · Fuseau · Config serveur (Tauri) · Sauvegarde</td><td>—</td></tr>
+            <tr><td>Transverse</td><td>Connexion · Recherche globale (§30) · Profil / changement de mot de passe · Barre hors-ligne</td><td>—</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+    <section class="sec" id="s20">
+      <h2><span class="num">20</span>Structure des dossiers</h2>
+      <h3>Mono-dépôt</h3>
+      <div class="tree">lubrimanager/
+├─ <b>backend/</b>        Spring Boot (Maven multi-module possible)
+├─ <b>desktop/</b>        React + TypeScript + Tauri
+├─ <b>docs/</b>           Ce dossier d'architecture, ADR, schéma BD
+└─ <b>.github/</b>        CI (build, tests, analyse, packaging)</div>
+      <h3>Backend — <code>backend/src/main/java/com/lubrimanager/</code></h3>
+      <div class="tree">├─ config/  security/  auth/  common/
+├─ user/          ├─ controller/
+├─ customer/      ├─ service/
+├─ account/       ├─ repository/
+├─ card/          ├─ entity/
+├─ product/       ├─ dto/
+├─ category/      ├─ mapper/
+├─ transaction/   └─ exception/
+├─ recharge/   sale/   inventory/
+├─ payment/    report/ audit/  notification/
+resources/
+├─ db/migration/   V1__baseline.sql, V2__seed_roles.sql …
+└─ application.yml (+ -dev / -prod)</div>
+      <h3>Frontend — <code>desktop/src/</code></h3>
+      <div class="tree">├─ app/            bootstrap, providers (Query, thème, router)
+├─ routes/         définition + gardes (RequireAuth)
+├─ layouts/        AppShell, écran de connexion
+├─ features/       un dossier par domaine
+│   └─ recharge/   components/ hooks/ api.ts types.ts routes.tsx
+├─ components/     DataTable, MoneyInput, StatusBadge, ConfirmDialog, ReceiptPrint
+├─ lib/            axios, auth store, idempotency, format (money/date)
+├─ api/            client généré depuis openapi.json
+├─ hooks/          useDebounce, usePagination, useGlobalSearch
+├─ types/          types partagés non générés
+└─ assets/
+desktop/src-tauri/  main.rs, tauri.conf.json, capabilities/, icons/</div>
+    </section>
+
+    <!-- ============================================================= -->
+    <section class="sec" id="s21">
+      <h2><span class="num">21</span>Stratégie de tests</h2>
+      <div class="prose">
+        <div class="grid2">
+          <div class="panel">
+            <h4>Backend</h4>
+            <ul>
+              <li><strong>Unitaires services</strong> — règles métier isolées (mock repositories) : RG-02 à RG-18.</li>
+              <li><strong>Intégration</strong> — <code>@SpringBootTest</code> + <strong>Testcontainers PostgreSQL</strong> : transactions réelles, verrous, contraintes, migrations Flyway.</li>
+              <li><strong>Contrôleurs</strong> — <code>@WebMvcTest</code> + Spring Security : codes de retour, RBAC, format d'erreur.</li>
+              <li><strong>Sécurité</strong> — accès inter-rôles refusés, token expiré/révoqué, utilisateur désactivé.</li>
+              <li><strong>Concurrence</strong> — recharge + vente simultanées sur le même compte : solde final correct, pas de double débit.</li>
+              <li><strong>Idempotence</strong> — même <code>Idempotency-Key</code> rejouée ⇒ une seule écriture.</li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h4>Frontend</h4>
+            <ul>
+              <li><strong>Composants critiques</strong> — <code>MoneyInput</code>, <code>DataTable</code>, badges de statut (Vitest + Testing Library).</li>
+              <li><strong>Parcours critiques</strong> — recharge, vente, annulation, solde insuffisant (Playwright contre un backend de test).</li>
+              <li>Intercepteur 401 → refresh → rejeu.</li>
+            </ul>
+          </div>
+        </div>
+        <h4>Cas métier de référence (cahier §49)</h4>
+        <div class="bleed"><table>
+          <thead><tr><th>Scénario</th><th>Attendu</th></tr></thead>
+          <tbody>
+            <tr><td>Recharge 100 000 + 50 000</td><td>Solde = 150 000 · 2 transactions RECHARGE VALIDEE</td></tr>
+            <tr><td>Achat 150 000 − 30 000</td><td>Solde = 120 000 · stock décrémenté · mouvement SORTIE</td></tr>
+            <tr><td>Achat 30 000 avec solde 20 000</td><td><strong>REFUS</strong> · solde et stock inchangés · audit ACHAT_REFUSE</td></tr>
+            <tr><td>Opération sur carte BLOQUEE</td><td><strong>REFUS</strong> (RG-02)</td></tr>
+            <tr><td>Annulation d'une vente</td><td>Transaction d'origine conservée (ANNULEE) · écriture ANNULATION créée · stock restitué</td></tr>
+            <tr><td>Double POST vente (même clé)</td><td>Une seule vente enregistrée</td></tr>
+          </tbody>
+        </table></div>
+        <p><strong>Objectif de couverture :</strong> services financiers ≥ 90 %, global backend ≥ 75 %. La CI bloque la fusion sous le seuil.</p>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+    <section class="sec" id="s22">
+      <h2><span class="num">22</span>Déploiement, sauvegarde &amp; mode hors-ligne</h2>
+      <div class="prose">
+        <h3>Topologie</h3>
+        <figure class="dgm">
+          <pre class="mermaid">
+%%{init:{'theme':'base','themeVariables':{'background':'#FBFAF6','primaryColor':'#FFFFFF','primaryTextColor':'#1B1E23','primaryBorderColor':'#12494A','lineColor':'#4C515A','fontFamily':'IBM Plex Sans'}}}%%
+flowchart LR
+  P1["Poste 1<br/>LubriManager.exe"] --> LB
+  P2["Poste 2"] --> LB
+  P3["Poste n"] --> LB
+  LB["Reverse proxy HTTPS<br/>(TLS, rate limit)"] --> APP["Spring Boot<br/>(service Windows / conteneur)"]
+  APP --> PG[("PostgreSQL 16")]
+  PG --> BK[["pg_dump quotidien<br/>+ archivage WAL<br/>+ copie hors-site"]]
+          </pre>
+          <figcaption>fig. 22-1 — Déploiement mono-agence</figcaption>
+        </figure>
+        <h3>CI / CD</h3>
+        <ul>
+          <li><strong>CI</strong> : build + tests (Testcontainers) + analyse dépendances + lint, à chaque PR.</li>
+          <li><strong>Backend</strong> : artefact <code>.jar</code> exécutable (ou image conteneur) ; migrations Flyway au démarrage ; profils <code>dev</code>/<code>prod</code>.</li>
+          <li><strong>Desktop</strong> : <code>tauri build</code> → <code>LubriManager-Setup.exe</code> (NSIS) signé ; publication sur l'endpoint de l'updater.</li>
+        </ul>
+        <h3>Sauvegarde PostgreSQL</h3>
+        <ul>
+          <li><code>pg_dump</code> chiffré <strong>quotidien</strong> + <strong>archivage WAL</strong> continu (PITR possible).</li>
+          <li>Rétention : 7 quotidiennes, 4 hebdomadaires, 6 mensuelles. Copie <strong>hors-site</strong>.</li>
+          <li><strong>Restauration testée</strong> trimestriellement (procédure documentée dans <code>docs/</code>).</li>
+          <li>Sauvegarde manuelle déclenchable depuis l'écran Paramètres (ADMIN).</li>
+        </ul>
+
+        <h3>Mode hors-ligne — architecture recommandée</h3>
+        <p>Il s'agit d'argent et de stock partagés entre postes. Une file d'opérations financières purement locale exposerait à : double débit (même carte servie hors-ligne sur deux postes), sur-vente de stock, soldes divergents à la resynchronisation. Ces risques ne sont pas maîtrisables proprement en v1.</p>
+        <div class="rule"><span class="tag">Recommandation — online-first</span>
+          <p><strong>v1 :</strong> les opérations financières (recharge, vente, annulation, ajustement) <strong>exigent</strong> la connexion au serveur. Hors-ligne, l'application reste ouverte en <strong>lecture seule</strong> (cache TanStack Query persistant : fiches clients, cartes, catalogue, derniers soldes connus <em>marqués « non temps réel »</em>) et les boutons d'action financière sont désactivés avec un message explicite. Rien n'est mis en file.</p>
+        </div>
+        <div class="prose">
+          <p><strong>Si un vrai mode déconnecté devient indispensable (évolution) :</strong> l'architecture le permet sans casse grâce à des fondations déjà posées —</p>
+          <ul>
+            <li>références et clés d'idempotence <strong>générées côté serveur</strong> ⇒ une opération mise en file obtient sa clé à la reconnexion, le serveur reste juge de l'unicité ;</li>
+            <li>le serveur reste l'<strong>autorité du solde</strong> : une opération hors-ligne est une <em>demande</em> revalidée à la synchronisation (solde recalculé, refus possible → notification à l'agent) ;</li>
+            <li>file locale chiffrée, ordonnancée, avec statut par opération (<code>EN_ATTENTE_SYNC</code> → <code>VALIDEE</code>/<code>REJETEE</code>) ;</li>
+            <li>plafond hors-ligne par poste et par carte, borné par <code>app_setting</code> ;</li>
+            <li>résolution de conflit déterministe : la première opération serveur gagne, les suivantes sont rejetées et remontées à l'agent.</li>
+          </ul>
+        </div>
+        <div class="decision"><span class="tag">DEC-17 — bloquant</span>
+          <p><strong>Hébergement &amp; connectivité.</strong> Le serveur Spring Boot / PostgreSQL est-il sur une machine du réseau local de l'entreprise, ou sur un VPS distant ? La connexion inter-postes est-elle fiable (LAN) ou dépendante d'Internet ? Cette réponse conditionne l'urgence réelle du mode hors-ligne et le type de certificat TLS.</p>
+          <p class="reco"><b>Recommandation :</b> serveur sur <strong>machine dédiée du LAN</strong> de l'agence, postes en réseau câblé/Wi-Fi local ⇒ le online-first suffit largement en v1.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+    <section class="sec" id="s23">
+      <h2><span class="num">23</span>Décisions métier à trancher avant développement</h2>
+      <div class="prose"><p>Récapitulatif. Les lignes <span style="color:var(--stop);font-weight:600">bloquantes</span> doivent être tranchées avant la phase indiquée ; les autres peuvent être fixées en cours de route avec une valeur par défaut.</p></div>
+      <div class="bleed">
+        <table>
+          <caption>Registre des décisions</caption>
+          <thead><tr><th>#</th><th>Question</th><th>Défaut proposé</th><th>Requis avant</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">DEC-01</td><td>Un compte par client, ou plusieurs ?</td><td>1 client = 1 compte</td><td class="mono" style="color:var(--stop)">Phase 4</td></tr>
+            <tr><td class="mono">DEC-02</td><td>Introduire <code>branch_id</code> (multi-agences futur) dès maintenant ?</td><td>Oui, agence unique par défaut</td><td class="mono" style="color:var(--stop)">Phase 1</td></tr>
+            <tr><td class="mono">DEC-03</td><td>Opérations à faire valider par un MANAGER + seuil ?</td><td>Recharge &gt; seuil + toute annulation ; asynchrone</td><td class="mono" style="color:var(--stop)">Phase 5</td></tr>
+            <tr><td class="mono">DEC-04</td><td>Prix TTC ou HT ? TVA sur facture ? Facture normalisée ?</td><td>TTC, TVA affichée pour info</td><td class="mono" style="color:var(--stop)">Phase 6</td></tr>
+            <tr><td class="mono">DEC-05</td><td>Ventes refusées : transaction <code>REFUSEE</code> ou audit seul ?</td><td>Audit seul</td><td class="mono">Phase 8</td></tr>
+            <tr><td class="mono">DEC-06</td><td>Annulation partielle d'une vente autorisée ?</td><td>Non — annulation totale seulement</td><td class="mono">Phase 9</td></tr>
+            <tr><td class="mono">DEC-07</td><td>Sens exact de <code>REMBOURSEMENT</code> vs <code>ANNULATION</code> ?</td><td>Remb. = sortie de valeur ; Annul. = correction</td><td class="mono">Phase 9</td></tr>
+            <tr><td class="mono">DEC-08</td><td>Découvert / crédit client autorisé ?</td><td>Non, solde ≥ 0 strict</td><td class="mono" style="color:var(--stop)">Phase 4</td></tr>
+            <tr><td class="mono">DEC-09</td><td>Numéro de carte : format imposé <code>CARD-NNNNNN</code> généré, ou saisie libre d'un numéro externe (badge existant) ?</td><td>Référence interne générée + champ <code>external_no</code> optionnel</td><td class="mono" style="color:var(--stop)">Phase 4</td></tr>
+            <tr><td class="mono">DEC-10</td><td>Une carte peut-elle être réaffectée d'un client à un autre ?</td><td>Non — désactivation + nouvelle carte</td><td class="mono">Phase 4</td></tr>
+            <tr><td class="mono">DEC-11</td><td>Valeurs de <code>customer.type</code> ?</td><td>PARTICULIER, ENTREPRISE, ADMINISTRATION</td><td class="mono">Phase 3</td></tr>
+            <tr><td class="mono">DEC-12</td><td>Valorisation du stock (CMUP / FIFO) nécessaire pour les rapports, ou quantités seules ?</td><td>Quantités seules en v1</td><td class="mono">Phase 7</td></tr>
+            <tr><td class="mono">DEC-13</td><td>Ventes sans carte (paiement direct espèces) autorisées ?</td><td>Non — carte obligatoire</td><td class="mono">Phase 8</td></tr>
+            <tr><td class="mono">DEC-14</td><td>Politique mot de passe + MFA pour ADMIN/MANAGER ?</td><td>10 car., verrou 5 échecs, MFA différé</td><td class="mono" style="color:var(--stop)">Phase 2</td></tr>
+            <tr><td class="mono">DEC-15</td><td>Durées de vie access / refresh token ?</td><td>15 min / 7 jours, rotation</td><td class="mono">Phase 2</td></tr>
+            <tr><td class="mono">DEC-16</td><td>Rétention des journaux d'audit et notifications ?</td><td>Audit ≥ 5 ans, notifs 12 mois</td><td class="mono">Phase 9</td></tr>
+            <tr><td class="mono">DEC-17</td><td>Hébergement serveur : LAN entreprise ou VPS ? Fiabilité réseau ?</td><td>Machine dédiée sur le LAN</td><td class="mono" style="color:var(--stop)">Phase 1</td></tr>
+            <tr><td class="mono">DEC-18</td><td>Format des reçus : ticket thermique 80 mm, A5, A4 ? Imprimante cible ?</td><td>Ticket 80 mm + PDF A4 pour factures</td><td class="mono">Phase 5</td></tr>
+            <tr><td class="mono">DEC-19</td><td>Certificat de signature de code (Authenticode) disponible pour l'installateur et l'updater ?</td><td>À acquérir avant la Phase 12</td><td class="mono">Phase 12</td></tr>
+            <tr><td class="mono">DEC-20</td><td>Rapprochement de caisse en fin de journée (rapport Z, comptage espèces par agent) attendu ?</td><td>Oui — rapport de caisse par agent</td><td class="mono">Phase 10</td></tr>
+            <tr><td class="mono">DEC-21</td><td>Langue de l'interface : FR uniquement, ou i18n prévu dès le départ ?</td><td>FR uniquement, chaînes centralisées</td><td class="mono">Phase 1</td></tr>
+            <tr><td class="mono">DEC-22</td><td>Plafonds : montant max de recharge, montant max de vente, plancher de solde d'alerte client ?</td><td>À fixer dans <code>app_setting</code></td><td class="mono">Phase 5</td></tr>
+            <tr><td class="mono">DEC-23</td><td>Gestion de l'expiration des cartes : toutes les cartes ont-elles une date d'expiration, ou est-ce optionnel ?</td><td>Optionnel (<code>expires_at</code> nullable)</td><td class="mono">Phase 4</td></tr>
+            <tr><td class="mono">DEC-24</td><td>Un client peut-il avoir plusieurs cartes <em>actives</em> simultanément sur le même compte ?</td><td>Oui</td><td class="mono">Phase 4</td></tr>
+            <tr><td class="mono">DEC-25</td><td>Notifications : uniquement in-app en v1, ou SMS/WhatsApp dès le départ ?</td><td>In-app seulement ; canaux externes = évolution</td><td class="mono">Phase 10</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+    <section class="sec" id="s24">
+      <h2><span class="num">24</span>Suite du projet</h2>
+      <div class="prose">
+        <p>Une fois ce dossier validé et les décisions <span style="color:var(--stop);font-weight:600">bloquantes Phase 1</span> tranchées (DEC-02, DEC-17, DEC-21), le développement démarre <strong>progressivement</strong>, phase par phase, sans jamais casser l'existant (Règle n°5).</p>
+        <div class="bleed"><table>
+          <caption>Feuille de route (cahier §52)</caption>
+          <thead><tr><th>Phase</th><th>Contenu</th><th>Décisions requises</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">1</td><td>Architecture, modèle BD, sécurité, structure — <em>ce document</em></td><td>DEC-02, 17, 21</td></tr>
+            <tr><td class="mono">2</td><td>Authentification : utilisateurs, rôles, JWT, refresh, gardes</td><td>DEC-14, 15</td></tr>
+            <tr><td class="mono">3</td><td>Clients : CRUD, recherche, fiche</td><td>DEC-11</td></tr>
+            <tr><td class="mono">4</td><td>Comptes &amp; cartes : création, activation, blocage, solde</td><td>DEC-01, 08, 09, 10, 23, 24</td></tr>
+            <tr><td class="mono">5</td><td>Recharges : opération, moyens de paiement, reçus, validation</td><td>DEC-03, 18, 22</td></tr>
+            <tr><td class="mono">6</td><td>Produits &amp; catégories : prix, TVA</td><td>DEC-04</td></tr>
+            <tr><td class="mono">7</td><td>Stock : entrées, sorties, inventaire, alertes</td><td>DEC-12</td></tr>
+            <tr><td class="mono">8</td><td>Ventes : panier, débit atomique, stock, transaction</td><td>DEC-05, 13</td></tr>
+            <tr><td class="mono">9</td><td>Audit : journalisation, annulations, contrôles</td><td>DEC-06, 07, 16</td></tr>
+            <tr><td class="mono">10</td><td>Tableau de bord : statistiques, graphiques, rapports</td><td>DEC-20, 25</td></tr>
+            <tr><td class="mono">11</td><td>Tests : unitaires, intégration, sécurité, métier</td><td>—</td></tr>
+            <tr><td class="mono">12</td><td>Tauri : intégration, packaging Windows, installateur, updater</td><td>DEC-19</td></tr>
+            <tr><td class="mono">13</td><td>Finalisation : optimisation, doc, sauvegardes, déploiement</td><td>—</td></tr>
+          </tbody>
+        </table></div>
+        <div class="rule"><span class="tag">Les trois règles d'or, en permanence</span>
+          <p><strong>1 — Ne jamais faire confiance au frontend.</strong> Toute permission et toute règle sont re-vérifiées côté Spring Boot.<br>
+          <strong>2 — Intégrité avant tout.</strong> Opérations atomiques, aucun solde modifié sans écriture, aucune transaction validée supprimée.<br>
+          <strong>3 — Développement progressif.</strong> Chaque phase est livrée complète et testable, sans régression sur les précédentes.</p>
+        </div>
+      </div>
+      <p class="footer">LubriManager · Dossier d'architecture Phase 1 · v1.0 · 2026-09-03 — document de travail, à valider par la maîtrise d'ouvrage.</p>
+    </section>
+  </main>
+</div>
+
+<script>
+(function(){
+  // theme cycle: auto -> light -> dark -> auto
+  var root=document.documentElement, btn=document.getElementById('themebtn');
+  var modes=['auto','light','dark'], i=0;
+  try{var s=localStorage.getItem('lm-theme'); if(s){i=Math.max(0,modes.indexOf(s));}}catch(e){}
+  function apply(){
+    var m=modes[i];
+    if(m==='auto'){root.removeAttribute('data-theme');}
+    else{root.setAttribute('data-theme',m);}
+    btn.textContent='Thème : '+ (m==='auto'?'auto':m==='light'?'clair':'sombre');
+    try{localStorage.setItem('lm-theme',m);}catch(e){}
+  }
+  btn.addEventListener('click',function(){i=(i+1)%modes.length;apply();});
+  apply();
+
+  // scroll-spy on TOC
+  var links=[].slice.call(document.querySelectorAll('nav.toc a'));
+  var map={}; links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  if('IntersectionObserver' in window){
+    var obs=new IntersectionObserver(function(entries){
+      entries.forEach(function(en){
+        if(en.isIntersecting){
+          links.forEach(function(l){l.classList.remove('active');});
+          var a=map[en.target.id]; if(a){a.classList.add('active');}
+        }
+      });
+    },{rootMargin:'-20% 0px -70% 0px'});
+    document.querySelectorAll('section.sec').forEach(function(s){obs.observe(s);});
+  }
+})();
+</script>
