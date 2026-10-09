@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Button, Group, Modal, Select, Stack, Textarea } from '@mantine/core';
+import { IconDownload } from '@tabler/icons-react';
 import { DataTable } from 'mantine-datatable';
 import { useForm } from '@mantine/form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '../../lib/api';
+import { api, getApiBaseUrl } from '../../lib/api';
+import { useAuth } from '../../lib/auth';
 import { dateTime, money } from '../../lib/format';
 import { useHasRole } from '../../lib/session';
 import { toastError, toastOk } from '../../lib/toast';
@@ -47,10 +49,12 @@ function ReverseModal({ txn, onClose }: { txn: Transaction | null; onClose: () =
 
 export function TransactionsPage() {
   const canReverse = useHasRole('ADMIN', 'MANAGER');
+  const token = useAuth((s) => s.accessToken);
   const [page, setPage] = useState(1);
   const [type, setType] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [reversing, setReversing] = useState<Transaction | null>(null);
+  const [downloading, setDownloading] = useState(false);
 
   const query = useQuery({
     queryKey: ['transactions', { page, type, status }],
@@ -62,9 +66,43 @@ export function TransactionsPage() {
       ).data,
   });
 
+  async function downloadHistory() {
+    setDownloading(true);
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/reports/transactions?format=csv`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error(`Erreur ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `historique-transactions-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      toastError(e);
+    } finally {
+      setDownloading(false);
+    }
+  }
+
   return (
     <>
-      <PageHeader title="Transactions" subtitle="Grand livre (aucune suppression possible)" />
+      <PageHeader
+        title="Transactions"
+        subtitle="Grand livre (aucune suppression possible)"
+        actions={
+          <Button
+            variant="light"
+            leftSection={<IconDownload size={16} />}
+            loading={downloading}
+            onClick={downloadHistory}
+          >
+            Télécharger l'historique (CSV)
+          </Button>
+        }
+      />
       <Group mb="sm">
         <Select
           placeholder="Type"

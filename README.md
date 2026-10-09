@@ -21,9 +21,10 @@ pour un distributeur au Togo (FCFA / XOF, TMoney & Flooz).
 
 | Dossier    | Contenu |
 |------------|---------|
-| `backend/` | API Spring Boot 3.3 (Java 17), sécurité JWT, JPA/Hibernate, Flyway `V1`→`V10` |
+| `backend/` | API Spring Boot 3.3 (Java 17), sécurité JWT, JPA/Hibernate, Flyway `V1`→`V12` |
 | `desktop/` | Interface React 18 + Vite + Mantine ; scaffold Tauri 2 dans `src-tauri/` |
 | `docs/`    | Document d'architecture et support de présentation (HTML) |
+| `docker-compose.yml` | Pile complète conteneurisée (PostgreSQL + API + interface web) — voir [Docker](#docker) |
 
 ## Démarrer en local
 
@@ -53,6 +54,32 @@ npm install
 npm run dev
 ```
 Interface sur `http://localhost:5173`.
+
+## Docker
+
+Fait tourner toute la pile (PostgreSQL + API + interface web) en une commande, sans
+rien installer d'autre que Docker. L'interface desktop Tauri (empaquetage natif) reste
+un sujet à part — ceci lance la version web de l'interface, servie par nginx.
+
+```bash
+cp .env.example .env     # puis éditez .env : remplacez TOUTES les valeurs
+docker compose up -d --build
+```
+
+- Interface : `http://localhost:8081`
+- API : `http://localhost:8080` (doc OpenAPI sur `/swagger-ui`)
+- PostgreSQL exposé sur `localhost:5433` (pour ne pas entrer en conflit avec un
+  PostgreSQL déjà installé en local sur le port 5432 par défaut)
+
+Le conteneur `backend` tourne avec `SPRING_PROFILES_ACTIVE=prod` : aucune valeur
+sensible n'a de défaut, tout vient de `.env`. Changez le mot de passe du compte
+`admin` dès la première connexion.
+
+```bash
+docker compose logs -f backend   # suivre les logs
+docker compose down              # arrêter (garde les données PostgreSQL)
+docker compose down -v           # arrêter et supprimer aussi les données
+```
 
 ## Configuration de production
 
