@@ -2,11 +2,9 @@ package com.lubrimanager.dashboard;
 
 import com.lubrimanager.card.CardStatus;
 import com.lubrimanager.customer.CustomerStatus;
-import com.lubrimanager.dashboard.dto.PaymentMethodTotal;
 import com.lubrimanager.dashboard.dto.TopCustomerRow;
 import com.lubrimanager.dashboard.dto.TopProductRow;
 import com.lubrimanager.dashboard.dto.UserActivityRow;
-import com.lubrimanager.product.ProductStatus;
 import com.lubrimanager.transaction.Transaction;
 import com.lubrimanager.transaction.TransactionStatus;
 import com.lubrimanager.transaction.TransactionType;
@@ -33,9 +31,6 @@ public interface DashboardRepository extends Repository<Transaction, Long> {
     @Query("select count(k) from Card k")
     long countCards();
 
-    @Query("select count(p) from Product p where p.status = :active and p.stockQuantity <= p.alertThreshold")
-    long countLowStockProducts(@Param("active") ProductStatus active);
-
     @Query("select count(t) from Transaction t where t.type = :type and t.status = :status")
     long countTransactions(@Param("type") TransactionType type, @Param("status") TransactionStatus status);
 
@@ -57,14 +52,14 @@ public interface DashboardRepository extends Repository<Transaction, Long> {
 
     @Query("""
             select new com.lubrimanager.dashboard.dto.TopProductRow(
-                si.product.id, si.productReference, si.productName,
-                sum(si.quantity), sum(si.lineTotal))
-            from SaleItem si
-              join si.sale s
-              join s.transaction t
-            where t.status = :validated and s.createdAt >= :from and s.createdAt < :to
-            group by si.product.id, si.productReference, si.productName
-            order by sum(si.quantity) desc
+                pi.product.id, pi.productReference, pi.productName,
+                sum(pi.quantity), sum(pi.lineTotal))
+            from PurchaseItem pi
+              join pi.purchase p
+              join p.transaction t
+            where t.status = :validated and p.createdAt >= :from and p.createdAt < :to
+            group by pi.product.id, pi.productReference, pi.productName
+            order by sum(pi.quantity) desc
             """)
     List<TopProductRow> topProducts(@Param("validated") TransactionStatus validated,
                                     @Param("from") Instant from, @Param("to") Instant to, Pageable pageable);
@@ -124,19 +119,4 @@ public interface DashboardRepository extends Repository<Transaction, Long> {
     BigDecimal userRechargeAmount(@Param("userId") Long userId, @Param("recharge") TransactionType recharge,
                                   @Param("validated") TransactionStatus validated,
                                   @Param("from") Instant from, @Param("to") Instant to);
-
-    @Query("""
-            select new com.lubrimanager.dashboard.dto.PaymentMethodTotal(
-                pm.code, coalesce(sum(t.amount), 0), count(r))
-            from Recharge r
-              join r.transaction t
-              join r.paymentMethod pm
-            where t.user.id = :userId and t.status = :validated
-              and t.createdAt >= :from and t.createdAt < :to
-            group by pm.code
-            order by pm.code
-            """)
-    List<PaymentMethodTotal> userRechargesByPaymentMethod(@Param("userId") Long userId,
-                                                          @Param("validated") TransactionStatus validated,
-                                                          @Param("from") Instant from, @Param("to") Instant to);
 }

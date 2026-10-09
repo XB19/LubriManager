@@ -13,25 +13,24 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 class AuditIT extends AbstractIntegrationTest {
 
-    private long paymentMethodEspeces(String token) throws Exception {
-        JsonNode methods = objectMapper.readTree(mockMvc.perform(get("/api/payment-methods")
-                .header("Authorization", bearer(token))).andReturn().getResponse().getContentAsString());
-        for (JsonNode m : methods) {
-            if (m.get("code").asText().equals("ESPECES")) {
-                return m.get("id").asLong();
-            }
-        }
-        throw new IllegalStateException("ESPECES manquant");
-    }
-
-    private long activeCard(String token) throws Exception {
-        long customerId = objectMapper.readTree(mockMvc.perform(post("/api/customers")
+    private long newCustomer(String token) throws Exception {
+        return objectMapper.readTree(mockMvc.perform(post("/api/customers")
                         .header("Authorization", bearer(token)).contentType("application/json")
                         .content("{\"fullName\":\"C\",\"type\":\"PARTICULIER\"}"))
                 .andReturn().getResponse().getContentAsString()).get("id").asLong();
+    }
+
+    private long activeCardOf(String token, long customerId) throws Exception {
         return objectMapper.readTree(mockMvc.perform(post("/api/cards")
                         .header("Authorization", bearer(token)).contentType("application/json")
                         .content("{\"customerId\":%d,\"activateImmediately\":true}".formatted(customerId)))
+                .andReturn().getResponse().getContentAsString()).get("id").asLong();
+    }
+
+    private long product(String token, long price) throws Exception {
+        return objectMapper.readTree(mockMvc.perform(post("/api/products").header("Authorization", bearer(token))
+                        .contentType("application/json")
+                        .content("{\"name\":\"P\",\"brand\":\"B\",\"unit\":\"U\",\"unitPrice\":%d}".formatted(price)))
                 .andReturn().getResponse().getContentAsString()).get("id").asLong();
     }
 
@@ -67,11 +66,10 @@ class AuditIT extends AbstractIntegrationTest {
     @Test
     void rechargeIsAudited() throws Exception {
         String token = adminToken();
-        long cardId = activeCard(token);
+        long customerId = newCustomer(token);
         JsonNode r = objectMapper.readTree(mockMvc.perform(post("/api/recharges").header("Authorization", bearer(token))
                         .header("Idempotency-Key", UUID.randomUUID().toString()).contentType("application/json")
-                        .content("{\"cardId\":%d,\"amount\":40000,\"paymentMethodId\":%d}"
-                                .formatted(cardId, paymentMethodEspeces(token))))
+                        .content("{\"customerId\":%d,\"amount\":40000}".formatted(customerId)))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString());
 
@@ -82,25 +80,18 @@ class AuditIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void refusedSaleIsAuditedButLeavesNoLedgerEntry() throws Exception {
+    void refusedPurchaseIsAuditedButLeavesNoLedgerEntry() throws Exception {
         String token = adminToken();
-        long cardId = activeCard(token);
-        long categoryId = objectMapper.readTree(mockMvc.perform(get("/api/categories").header("Authorization", bearer(token)))
-                .andReturn().getResponse().getContentAsString()).get(0).get("id").asLong();
-        long productId = objectMapper.readTree(mockMvc.perform(post("/api/products").header("Authorization", bearer(token))
-                        .contentType("application/json")
-                        .content("{\"name\":\"Cher\",\"categoryId\":%d,\"unit\":\"U\",\"unitPrice\":50000}".formatted(categoryId)))
-                .andReturn().getResponse().getContentAsString()).get("id").asLong();
-        mockMvc.perform(post("/api/inventory/movements").header("Authorization", bearer(token))
-                .contentType("application/json")
-                .content("{\"type\":\"ENTREE\",\"productId\":%d,\"quantity\":10}".formatted(productId)));
+        long customerId = newCustomer(token);
+        long cardId = activeCardOf(token, customerId);
+        long productId = product(token, 50_000); // solde à 0 ⇒ refus
 
-        mockMvc.perform(post("/api/sales").header("Authorization", bearer(token))
+        mockMvc.perform(post("/api/purchases").header("Authorization", bearer(token))
                         .header("Idempotency-Key", UUID.randomUUID().toString()).contentType("application/json")
                         .content("{\"cardId\":%d,\"items\":[{\"productId\":%d,\"quantity\":1}]}".formatted(cardId, productId)))
                 .andExpect(status().isUnprocessableEntity());
 
-        mockMvc.perform(get("/api/audit").param("action", "SALE_REFUSED").header("Authorization", bearer(token)))
+        mockMvc.perform(get("/api/audit").param("action", "PURCHASE_REFUSED").header("Authorization", bearer(token)))
                 .andExpect(jsonPath("$.totalElements", org.hamcrest.Matchers.greaterThanOrEqualTo(1)));
         mockMvc.perform(get("/api/transactions").param("type", "ACHAT").header("Authorization", bearer(token)))
                 .andExpect(jsonPath("$.totalElements").value(0));
@@ -109,13 +100,8 @@ class AuditIT extends AbstractIntegrationTest {
     @Test
     void cardAndCustomerStatusChangesAreAudited() throws Exception {
         String token = adminToken();
-        long customerId = objectMapper.readTree(mockMvc.perform(post("/api/customers").header("Authorization", bearer(token))
-                        .contentType("application/json").content("{\"fullName\":\"Statut\",\"type\":\"PARTICULIER\"}"))
-                .andReturn().getResponse().getContentAsString()).get("id").asLong();
-        long cardId = objectMapper.readTree(mockMvc.perform(post("/api/cards").header("Authorization", bearer(token))
-                        .contentType("application/json")
-                        .content("{\"customerId\":%d,\"activateImmediately\":true}".formatted(customerId)))
-                .andReturn().getResponse().getContentAsString()).get("id").asLong();
+        long customerId = newCustomer(token);
+        long cardId = activeCardOf(token, customerId);
 
         mockMvc.perform(patch("/api/cards/{id}/status", cardId).header("Authorization", bearer(token))
                 .contentType("application/json").content("{\"status\":\"SUSPENDUE\",\"reason\":\"contrôle\"}"));

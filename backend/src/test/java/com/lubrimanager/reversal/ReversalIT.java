@@ -2,7 +2,6 @@ package com.lubrimanager.reversal;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.lubrimanager.account.AccountRepository;
-import com.lubrimanager.product.ProductRepository;
 import com.lubrimanager.support.AbstractIntegrationTest;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -17,59 +16,46 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ReversalIT extends AbstractIntegrationTest {
 
     @Autowired private AccountRepository accountRepository;
-    @Autowired private ProductRepository productRepository;
 
-    private long especes(String token) throws Exception {
-        JsonNode methods = objectMapper.readTree(mockMvc.perform(get("/api/payment-methods")
-                .header("Authorization", bearer(token))).andReturn().getResponse().getContentAsString());
-        for (JsonNode m : methods) {
-            if (m.get("code").asText().equals("ESPECES")) {
-                return m.get("id").asLong();
-            }
-        }
-        throw new IllegalStateException();
-    }
-
-    private long activeCard(String token) throws Exception {
-        long customerId = objectMapper.readTree(mockMvc.perform(post("/api/customers").header("Authorization", bearer(token))
+    private long newCustomer(String token) throws Exception {
+        return objectMapper.readTree(mockMvc.perform(post("/api/customers").header("Authorization", bearer(token))
                         .contentType("application/json").content("{\"fullName\":\"C\",\"type\":\"ENTREPRISE\"}"))
                 .andReturn().getResponse().getContentAsString()).get("id").asLong();
+    }
+
+    private long activeCardOf(String token, long customerId) throws Exception {
         return objectMapper.readTree(mockMvc.perform(post("/api/cards").header("Authorization", bearer(token))
                         .contentType("application/json")
                         .content("{\"customerId\":%d,\"activateImmediately\":true}".formatted(customerId)))
                 .andReturn().getResponse().getContentAsString()).get("id").asLong();
     }
 
-    private long accountOfCard(String token, long cardId) throws Exception {
-        return objectMapper.readTree(mockMvc.perform(get("/api/cards/{id}", cardId).header("Authorization", bearer(token)))
-                .andReturn().getResponse().getContentAsString()).get("accountId").asLong();
+    private long accountOfCustomer(String token, long customerId) throws Exception {
+        return objectMapper.readTree(mockMvc.perform(get("/api/customers/{id}/account", customerId)
+                        .header("Authorization", bearer(token)))
+                .andReturn().getResponse().getContentAsString()).get("id").asLong();
     }
 
-    private JsonNode recharge(String token, long cardId, long amount) throws Exception {
+    private JsonNode recharge(String token, long customerId, long amount) throws Exception {
         return objectMapper.readTree(mockMvc.perform(post("/api/recharges").header("Authorization", bearer(token))
                         .header("Idempotency-Key", UUID.randomUUID().toString()).contentType("application/json")
-                        .content("{\"cardId\":%d,\"amount\":%d,\"paymentMethodId\":%d}".formatted(cardId, amount, especes(token))))
+                        .content("{\"customerId\":%d,\"amount\":%d}".formatted(customerId, amount)))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString());
     }
 
-    private long stockedProduct(String token, long price, long qty) throws Exception {
-        long categoryId = objectMapper.readTree(mockMvc.perform(get("/api/categories").header("Authorization", bearer(token)))
-                .andReturn().getResponse().getContentAsString()).get(0).get("id").asLong();
-        long id = objectMapper.readTree(mockMvc.perform(post("/api/products").header("Authorization", bearer(token))
+    private long product(String token, long price) throws Exception {
+        return objectMapper.readTree(mockMvc.perform(post("/api/products").header("Authorization", bearer(token))
                         .contentType("application/json")
-                        .content("{\"name\":\"P\",\"categoryId\":%d,\"unit\":\"U\",\"unitPrice\":%d}".formatted(categoryId, price)))
+                        .content("{\"name\":\"P\",\"brand\":\"B\",\"unit\":\"U\",\"unitPrice\":%d}".formatted(price)))
                 .andReturn().getResponse().getContentAsString()).get("id").asLong();
-        mockMvc.perform(post("/api/inventory/movements").header("Authorization", bearer(token))
-                .contentType("application/json")
-                .content("{\"type\":\"ENTREE\",\"productId\":%d,\"quantity\":%d}".formatted(id, qty)));
-        return id;
     }
 
-    private JsonNode sale(String token, long cardId, long productId, int qty) throws Exception {
-        return objectMapper.readTree(mockMvc.perform(post("/api/sales").header("Authorization", bearer(token))
+    private JsonNode purchase(String token, long cardId, long productId, int qty) throws Exception {
+        return objectMapper.readTree(mockMvc.perform(post("/api/purchases").header("Authorization", bearer(token))
                         .header("Idempotency-Key", UUID.randomUUID().toString()).contentType("application/json")
-                        .content("{\"cardId\":%d,\"items\":[{\"productId\":%d,\"quantity\":%d}]}".formatted(cardId, productId, qty)))
+                        .content("{\"cardId\":%d,\"items\":[{\"productId\":%d,\"quantity\":%d}]}"
+                                .formatted(cardId, productId, qty)))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString());
     }
@@ -94,9 +80,9 @@ class ReversalIT extends AbstractIntegrationTest {
     @Test
     void reverseRechargeCreditsBackAndFlagsOriginalAnnulee() throws Exception {
         String token = adminToken();
-        long cardId = activeCard(token);
-        long accountId = accountOfCard(token, cardId);
-        long txnId = recharge(token, cardId, 50_000).get("transactionId").asLong();
+        long customerId = newCustomer(token);
+        long accountId = accountOfCustomer(token, customerId);
+        long txnId = recharge(token, customerId, 50_000).get("transactionId").asLong();
         assertThat(accountRepository.findById(accountId).orElseThrow().getBalance()).isEqualByComparingTo("50000");
 
         reverse(token, txnId, "erreur de saisie")
@@ -114,38 +100,35 @@ class ReversalIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void reverseSaleRestocksProductsAndRefundsBalance() throws Exception {
+    void reversePurchaseRefundsBalanceOnly() throws Exception {
         String token = adminToken();
-        long cardId = activeCard(token);
-        long accountId = accountOfCard(token, cardId);
-        long productId = stockedProduct(token, 8_500, 100);
-        recharge(token, cardId, 90_000);
-        long saleTxnId = sale(token, cardId, productId, 3).get("transactionId").asLong();
+        long customerId = newCustomer(token);
+        long cardId = activeCardOf(token, customerId);
+        long accountId = accountOfCustomer(token, customerId);
+        long productId = product(token, 8_500);
+        recharge(token, customerId, 90_000);
+        long purchaseTxnId = purchase(token, cardId, productId, 3).get("transactionId").asLong();
 
-        assertThat(productRepository.findById(productId).orElseThrow().getStockQuantity()).isEqualByComparingTo("97");
-        var balanceAfterSale = accountRepository.findById(accountId).orElseThrow().getBalance();
+        var balanceAfterPurchase = accountRepository.findById(accountId).orElseThrow().getBalance();
+        assertThat(balanceAfterPurchase).isEqualByComparingTo("64500");
 
-        reverse(token, saleTxnId, "client a rendu les articles")
+        reverse(token, purchaseTxnId, "client a rendu les articles")
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.originalStatus").value("ANNULEE"))
                 .andExpect(jsonPath("$.reversalAmount").value(25500));
 
-        assertThat(productRepository.findById(productId).orElseThrow().getStockQuantity()).isEqualByComparingTo("100");
         assertThat(accountRepository.findById(accountId).orElseThrow().getBalance())
-                .isEqualByComparingTo(balanceAfterSale.add(new java.math.BigDecimal("25500")));
-
-        mockMvc.perform(get("/api/inventory/movements").param("type", "ENTREE").param("productId", String.valueOf(productId))
-                        .header("Authorization", bearer(token)))
-                .andExpect(jsonPath("$.content[0].reference", org.hamcrest.Matchers.startsWith("ANNL-")));
+                .isEqualByComparingTo(balanceAfterPurchase.add(new java.math.BigDecimal("25500")));
     }
 
     @Test
     void cannotReverseRechargeWhenFundsAlreadySpent() throws Exception {
         String token = adminToken();
-        long cardId = activeCard(token);
-        long productId = stockedProduct(token, 50_000, 10);
-        long rechargeTxnId = recharge(token, cardId, 50_000).get("transactionId").asLong();
-        sale(token, cardId, productId, 1); // solde ramené à 0
+        long customerId = newCustomer(token);
+        long cardId = activeCardOf(token, customerId);
+        long productId = product(token, 50_000);
+        long rechargeTxnId = recharge(token, customerId, 50_000).get("transactionId").asLong();
+        purchase(token, cardId, productId, 1); // solde ramené à 0
 
         reverse(token, rechargeTxnId, "trop tard")
                 .andExpect(status().isUnprocessableEntity())
@@ -155,8 +138,8 @@ class ReversalIT extends AbstractIntegrationTest {
     @Test
     void cannotReverseTwiceAndReasonIsRequired() throws Exception {
         String token = adminToken();
-        long cardId = activeCard(token);
-        long txnId = recharge(token, cardId, 20_000).get("transactionId").asLong();
+        long customerId = newCustomer(token);
+        long txnId = recharge(token, customerId, 20_000).get("transactionId").asLong();
 
         mockMvc.perform(post("/api/transactions/{id}/reversal", txnId).header("Authorization", bearer(token))
                         .contentType("application/json").content("{\"reason\":\"\"}"))
@@ -171,8 +154,8 @@ class ReversalIT extends AbstractIntegrationTest {
     @Test
     void reversalRequiresManagerRole() throws Exception {
         String token = adminToken();
-        long cardId = activeCard(token);
-        long txnId = recharge(token, cardId, 10_000).get("transactionId").asLong();
+        long customerId = newCustomer(token);
+        long txnId = recharge(token, customerId, 10_000).get("transactionId").asLong();
 
         createUser("agent_rev", "AGENT", "Agent!2026");
         reverse(accessToken("agent_rev", "Agent!2026"), txnId, "x").andExpect(status().isForbidden());

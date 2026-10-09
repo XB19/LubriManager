@@ -16,17 +16,16 @@ interface ReportData {
 }
 
 const TYPES = [
-  { value: 'sales', label: 'Ventes' },
+  { value: 'purchases', label: 'Débits carte' },
   { value: 'recharges', label: 'Recharges' },
   { value: 'transactions', label: 'Transactions' },
   { value: 'cancellations', label: 'Annulations' },
-  { value: 'stock', label: 'État du stock' },
   { value: 'audit', label: "Journal d'audit" },
 ];
 
 export function ReportsPage() {
   const token = useAuth((s) => s.accessToken);
-  const [type, setType] = useState('sales');
+  const [type, setType] = useState('purchases');
   const [from, setFrom] = useState<Date | null>(dayjs().startOf('month').toDate());
   const [to, setTo] = useState<Date | null>(new Date());
   const [data, setData] = useState<ReportData | null>(null);
@@ -70,7 +69,7 @@ export function ReportsPage() {
       <PageHeader title="Rapports" subtitle="Aperçu à l'écran ou export CSV (compatible Excel)" />
       <Card withBorder padding="md" radius="md" mb="md">
         <Group align="flex-end">
-          <Select label="Type de rapport" data={TYPES} value={type} onChange={(v) => setType(v ?? 'sales')} w={200} />
+          <Select label="Type de rapport" data={TYPES} value={type} onChange={(v) => setType(v ?? 'purchases')} w={200} />
           <DateInput label="Du" valueFormat="DD/MM/YYYY" value={from} onChange={setFrom} clearable />
           <DateInput label="Au" valueFormat="DD/MM/YYYY" value={to} onChange={setTo} clearable />
           <Button leftSection={<IconTable size={16} />} loading={preview.isPending} onClick={() => preview.mutate()}>

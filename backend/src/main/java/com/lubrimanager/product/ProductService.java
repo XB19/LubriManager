@@ -1,7 +1,5 @@
 package com.lubrimanager.product;
 
-import com.lubrimanager.category.Category;
-import com.lubrimanager.category.CategoryRepository;
 import com.lubrimanager.common.error.ApiException;
 import com.lubrimanager.common.reference.ReferenceCounterService;
 import com.lubrimanager.product.dto.CreateProductRequest;
@@ -17,9 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 /**
- * Catalogue produits : attribution de la référence, gestion des prix (TTC),
- * du taux de TVA et du seuil d'alerte de stock. Le stock lui-même est géré
- * en Phase 7.
+ * Catalogue produits : attribution de la référence et gestion des champs
+ * (nom, marque, unité, prix, description). Modèle minimal, sans TVA ni stock.
  */
 @Service
 @Transactional
@@ -28,26 +25,21 @@ public class ProductService {
     private static final Logger log = LoggerFactory.getLogger(ProductService.class);
     private static final String PREFIX = "PROD";
     private static final int WIDTH = 6;
-    private static final BigDecimal DEFAULT_VAT_RATE = new BigDecimal("18.00");
 
     private final ProductRepository products;
-    private final CategoryRepository categories;
     private final ReferenceCounterService references;
 
-    public ProductService(ProductRepository products, CategoryRepository categories,
-                          ReferenceCounterService references) {
+    public ProductService(ProductRepository products, ReferenceCounterService references) {
         this.products = products;
-        this.categories = categories;
         this.references = references;
     }
 
     @Transactional(readOnly = true)
-    public Page<Product> search(String q, Long categoryId, ProductStatus status, boolean lowStockOnly,
-                                Pageable pageable) {
+    public Page<Product> search(String q, Pageable pageable) {
         String pattern = StringUtils.hasText(q)
                 ? "%" + q.trim().toLowerCase(Locale.ROOT) + "%"
                 : "%";
-        return products.search(pattern, categoryId, status, lowStockOnly, pageable);
+        return products.search(pattern, pageable);
     }
 
     @Transactional(readOnly = true)
@@ -63,53 +55,30 @@ public class ProductService {
     }
 
     public Product create(CreateProductRequest req) {
-        Category category = resolveCategory(req.categoryId());
         Product product = new Product();
         product.setReference(references.next(PREFIX, WIDTH));
-        product.setCategory(category);
-        product.setStatus(ProductStatus.ACTIF);
-        product.setStockQuantity(BigDecimal.ZERO);
-        apply(product, req.name(), req.brand(), req.description(), req.unit(),
-                req.unitPrice(), req.vatRate() != null ? req.vatRate() : DEFAULT_VAT_RATE,
-                req.alertThreshold() != null ? req.alertThreshold() : BigDecimal.ZERO);
+        apply(product, req.name(), req.brand(), req.unit(), req.unitPrice(), req.description());
         Product saved = products.save(product);
-        log.info("Produit créé : {} — {} ({} FCFA TTC)", saved.getReference(), saved.getName(), saved.getUnitPrice());
+        log.info("Produit créé : {} — {} ({} FCFA)", saved.getReference(), saved.getName(), saved.getUnitPrice());
         return saved;
     }
 
     public Product update(Long id, UpdateProductRequest req) {
         Product product = get(id);
-        Category category = resolveCategory(req.categoryId());
-        product.setCategory(category);
-        apply(product, req.name(), req.brand(), req.description(), req.unit(),
-                req.unitPrice(), req.vatRate(), req.alertThreshold());
-        return product;
-    }
-
-    public Product updateStatus(Long id, ProductStatus status) {
-        Product product = get(id);
-        product.setStatus(status);
+        apply(product, req.name(), req.brand(), req.unit(), req.unitPrice(), req.description());
         return product;
     }
 
     // ------------------------------------------------------------------
 
-    private void apply(Product p, String name, String brand, String description, String unit,
-                       BigDecimal unitPrice, BigDecimal vatRate, BigDecimal alertThreshold) {
+    private void apply(Product p, String name, String brand, String unit, BigDecimal unitPrice, String description) {
         if (unitPrice.stripTrailingZeros().scale() > 0) {
             throw ApiException.businessRule("Le prix doit être un nombre entier de FCFA.");
         }
         p.setName(name.trim());
-        p.setBrand(StringUtils.hasText(brand) ? brand.trim() : null);
-        p.setDescription(StringUtils.hasText(description) ? description.trim() : null);
+        p.setBrand(brand.trim());
         p.setUnit(unit.trim());
         p.setUnitPrice(unitPrice.setScale(2));
-        p.setVatRate(vatRate.setScale(2));
-        p.setAlertThreshold(alertThreshold.setScale(2));
-    }
-
-    private Category resolveCategory(Long categoryId) {
-        return categories.findById(categoryId)
-                .orElseThrow(() -> ApiException.notFound("Catégorie %d introuvable".formatted(categoryId)));
+        p.setDescription(StringUtils.hasText(description) ? description.trim() : null);
     }
 }

@@ -7,8 +7,7 @@ import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 
 public record CreateRechargeRequest(
-        @NotNull Long cardId,
+        @NotNull Long customerId,
         @NotNull @Positive @Digits(integer = 13, fraction = 2) BigDecimal amount,
-        @NotNull Long paymentMethodId,
         @Size(max = 500) String comment) {
 }

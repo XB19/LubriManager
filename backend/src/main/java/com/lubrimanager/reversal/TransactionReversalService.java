@@ -10,14 +10,10 @@ import com.lubrimanager.common.error.ApiException;
 import com.lubrimanager.common.error.ErrorCode;
 import com.lubrimanager.common.money.MoneyRules;
 import com.lubrimanager.common.reference.ReferenceCounterService;
-import com.lubrimanager.inventory.InventoryService;
-import com.lubrimanager.product.Product;
-import com.lubrimanager.product.ProductRepository;
+import com.lubrimanager.notification.NotificationService;
+import com.lubrimanager.notification.NotificationSeverity;
+import com.lubrimanager.notification.NotificationType;
 import com.lubrimanager.reversal.dto.ReversalResponse;
-import com.lubrimanager.sale.Sale;
-import com.lubrimanager.sale.SaleItem;
-import com.lubrimanager.sale.SaleItemRepository;
-import com.lubrimanager.sale.SaleRepository;
 import com.lubrimanager.transaction.Transaction;
 import com.lubrimanager.transaction.TransactionRepository;
 import com.lubrimanager.transaction.TransactionStatus;
@@ -27,7 +23,6 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.EnumSet;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import org.slf4j.Logger;
@@ -37,12 +32,13 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 /**
- * Annulation / contre-passation d'une transaction validée (§14, §26).
+ * Annulation / contre-passation d'une transaction validée.
  *
  * <p>La transaction d'origine <strong>n'est jamais supprimée</strong> : elle passe
  * au statut {@code ANNULEE} et une nouvelle écriture {@code ANNULATION} de montant
  * inverse lui est liée. Un motif est obligatoire. Annulation <strong>totale</strong>
- * uniquement (DEC-06). Pour une vente, le stock est restitué (mouvement ENTREE, RG-12).
+ * uniquement (DEC-06). L'annulation d'un débit carte se limite à recréditer le solde
+ * (pas de stock).
  */
 @Service
 public class TransactionReversalService {
@@ -53,30 +49,24 @@ public class TransactionReversalService {
 
     private final TransactionRepository transactions;
     private final AccountRepository accounts;
-    private final SaleRepository sales;
-    private final SaleItemRepository saleItems;
-    private final ProductRepository products;
-    private final InventoryService inventory;
     private final ReferenceCounterService references;
     private final UserRepository users;
     private final BranchRepository branches;
     private final AuditService audit;
+    private final NotificationService notifications;
     private final Clock clock;
 
     public TransactionReversalService(TransactionRepository transactions, AccountRepository accounts,
-                                      SaleRepository sales, SaleItemRepository saleItems, ProductRepository products,
-                                      InventoryService inventory, ReferenceCounterService references,
-                                      UserRepository users, BranchRepository branches, AuditService audit, Clock clock) {
+                                      ReferenceCounterService references, UserRepository users,
+                                      BranchRepository branches, AuditService audit,
+                                      NotificationService notifications, Clock clock) {
         this.transactions = transactions;
         this.accounts = accounts;
-        this.sales = sales;
-        this.saleItems = saleItems;
-        this.products = products;
-        this.inventory = inventory;
         this.references = references;
         this.users = users;
         this.branches = branches;
         this.audit = audit;
+        this.notifications = notifications;
         this.clock = clock;
     }
 
@@ -130,10 +120,6 @@ public class TransactionReversalService {
         account.setBalance(after);
         original.setStatus(TransactionStatus.ANNULEE);
 
-        if (original.getType() == TransactionType.ACHAT) {
-            restock(original, reference, approver);
-        }
-
         audit.recordChange(AuditAction.TRANSACTION_REVERSED, "transaction", original.getId(), original.getReference(),
                 "Annulation de %s (%s FCFA) : %s".formatted(original.getReference(),
                         reversalAmount.toPlainString(), reason.trim()),
@@ -141,24 +127,14 @@ public class TransactionReversalService {
                 Map.of("status", TransactionStatus.ANNULEE.name(), "balance", after.toPlainString()),
                 approver);
 
+        notifications.staffAlert(NotificationType.TRANSACTION_REVERSED, NotificationSeverity.ALERTE,
+                "Transaction annulée",
+                "%s a annulé %s (%s FCFA) — motif : %s".formatted(approver.username(), original.getReference(),
+                        reversalAmount.toPlainString(), reason.trim()),
+                original.getReference());
+
         log.info("Annulation {} de {} par {} : solde {} → {}", reference, original.getReference(),
                 approver.username(), before.toPlainString(), after.toPlainString());
         return ReversalResponse.of(reversal, original, approver.username());
-    }
-
-    private void restock(Transaction saleTransaction, String reversalReference, Actor approver) {
-        Sale sale = sales.findByTransactionId(saleTransaction.getId()).orElse(null);
-        if (sale == null) {
-            return;
-        }
-        Map<Long, BigDecimal> quantityByProduct = new LinkedHashMap<>();
-        for (SaleItem item : saleItems.findBySaleIdOrderByIdAsc(sale.getId())) {
-            quantityByProduct.merge(item.getProduct().getId(), item.getQuantity(), BigDecimal::add);
-        }
-        for (Long productId : quantityByProduct.keySet().stream().sorted().toList()) {
-            Product product = products.lockById(productId)
-                    .orElseThrow(() -> ApiException.notFound("Produit %d introuvable".formatted(productId)));
-            inventory.recordReversalInflow(product, quantityByProduct.get(productId), reversalReference, approver);
-        }
     }
 }

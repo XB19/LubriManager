@@ -1,11 +1,8 @@
 package com.lubrimanager.dashboard;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.lubrimanager.payment.PaymentMethodRepository;
 import com.lubrimanager.support.AbstractIntegrationTest;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -14,46 +11,38 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 class DashboardIT extends AbstractIntegrationTest {
 
-    @Autowired
-    private PaymentMethodRepository paymentMethodRepository;
-
-    private long especes() {
-        return paymentMethodRepository.findByCodeIgnoreCase("ESPECES").orElseThrow().getId();
-    }
-
-    private long activeCard(String token) throws Exception {
-        long customerId = objectMapper.readTree(mockMvc.perform(post("/api/customers").header("Authorization", bearer(token))
+    private long newCustomer(String token) throws Exception {
+        return objectMapper.readTree(mockMvc.perform(post("/api/customers").header("Authorization", bearer(token))
                         .contentType("application/json").content("{\"fullName\":\"Dash\",\"type\":\"ENTREPRISE\"}"))
                 .andReturn().getResponse().getContentAsString()).get("id").asLong();
+    }
+
+    private long activeCardOf(String token, long customerId) throws Exception {
         return objectMapper.readTree(mockMvc.perform(post("/api/cards").header("Authorization", bearer(token))
                         .contentType("application/json")
                         .content("{\"customerId\":%d,\"activateImmediately\":true}".formatted(customerId)))
                 .andReturn().getResponse().getContentAsString()).get("id").asLong();
     }
 
-    private void recharge(String token, long cardId, long amount) throws Exception {
+    private void recharge(String token, long customerId, long amount) throws Exception {
         mockMvc.perform(post("/api/recharges").header("Authorization", bearer(token))
                         .header("Idempotency-Key", UUID.randomUUID().toString()).contentType("application/json")
-                        .content("{\"cardId\":%d,\"amount\":%d,\"paymentMethodId\":%d}".formatted(cardId, amount, especes())))
+                        .content("{\"customerId\":%d,\"amount\":%d}".formatted(customerId, amount)))
                 .andExpect(status().isCreated());
     }
 
-    private long stockedProduct(String token, long price, long qty) throws Exception {
-        long categoryId = objectMapper.readTree(mockMvc.perform(get("/api/categories").header("Authorization", bearer(token)))
-                .andReturn().getResponse().getContentAsString()).get(0).get("id").asLong();
-        long id = objectMapper.readTree(mockMvc.perform(post("/api/products").header("Authorization", bearer(token))
+    private long product(String token, long price) throws Exception {
+        return objectMapper.readTree(mockMvc.perform(post("/api/products").header("Authorization", bearer(token))
                         .contentType("application/json")
-                        .content("{\"name\":\"Huile\",\"categoryId\":%d,\"unit\":\"U\",\"unitPrice\":%d}".formatted(categoryId, price)))
+                        .content("{\"name\":\"Huile\",\"brand\":\"B\",\"unit\":\"U\",\"unitPrice\":%d}".formatted(price)))
                 .andReturn().getResponse().getContentAsString()).get("id").asLong();
-        mockMvc.perform(post("/api/inventory/movements").header("Authorization", bearer(token))
-                .contentType("application/json").content("{\"type\":\"ENTREE\",\"productId\":%d,\"quantity\":%d}".formatted(id, qty)));
-        return id;
     }
 
-    private void sale(String token, long cardId, long productId, int qty) throws Exception {
-        mockMvc.perform(post("/api/sales").header("Authorization", bearer(token))
+    private void purchase(String token, long cardId, long productId, int qty) throws Exception {
+        mockMvc.perform(post("/api/purchases").header("Authorization", bearer(token))
                         .header("Idempotency-Key", UUID.randomUUID().toString()).contentType("application/json")
-                        .content("{\"cardId\":%d,\"items\":[{\"productId\":%d,\"quantity\":%d}]}".formatted(cardId, productId, qty)))
+                        .content("{\"cardId\":%d,\"items\":[{\"productId\":%d,\"quantity\":%d}]}"
+                                .formatted(cardId, productId, qty)))
                 .andExpect(status().isCreated());
     }
 
@@ -69,10 +58,11 @@ class DashboardIT extends AbstractIntegrationTest {
     @Test
     void overviewAggregatesCountsAndMonthTotals() throws Exception {
         String token = adminToken();
-        long cardId = activeCard(token);
-        long productId = stockedProduct(token, 8_500, 50);
-        recharge(token, cardId, 90_000);
-        sale(token, cardId, productId, 2); // total 17 000
+        long customerId = newCustomer(token);
+        long cardId = activeCardOf(token, customerId);
+        long productId = product(token, 8_500);
+        recharge(token, customerId, 90_000);
+        purchase(token, cardId, productId, 2); // total 17 000
 
         mockMvc.perform(get("/api/dashboard").header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
@@ -87,10 +77,11 @@ class DashboardIT extends AbstractIntegrationTest {
     @Test
     void topProductsCustomersAndUserActivity() throws Exception {
         String token = adminToken();
-        long cardId = activeCard(token);
-        long productId = stockedProduct(token, 5_000, 100);
-        recharge(token, cardId, 90_000);
-        sale(token, cardId, productId, 4);
+        long customerId = newCustomer(token);
+        long cardId = activeCardOf(token, customerId);
+        long productId = product(token, 5_000);
+        recharge(token, customerId, 90_000);
+        purchase(token, cardId, productId, 4);
 
         mockMvc.perform(get("/api/dashboard/top-products").header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
@@ -108,10 +99,10 @@ class DashboardIT extends AbstractIntegrationTest {
     @Test
     void agentSeesOwnDayButNotGlobalDashboard() throws Exception {
         String adminToken = adminToken();
-        long cardId = activeCard(adminToken);
+        long customerId = newCustomer(adminToken);
         createUser("agent_dash", "AGENT", "Agent!2026");
         String agentToken = accessToken("agent_dash", "Agent!2026");
-        recharge(agentToken, cardId, 30_000);
+        recharge(agentToken, customerId, 30_000);
 
         mockMvc.perform(get("/api/dashboard").header("Authorization", bearer(agentToken)))
                 .andExpect(status().isForbidden());
@@ -119,7 +110,6 @@ class DashboardIT extends AbstractIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.operator").value("agent_dash"))
                 .andExpect(jsonPath("$.rechargeCount").value(1))
-                .andExpect(jsonPath("$.rechargeAmount").value(30000))
-                .andExpect(jsonPath("$.rechargesByPaymentMethod[0].paymentMethod").value("ESPECES"));
+                .andExpect(jsonPath("$.rechargeAmount").value(30000));
     }
 }

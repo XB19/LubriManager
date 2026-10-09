@@ -4,7 +4,6 @@ import com.lubrimanager.common.web.PageResponse;
 import com.lubrimanager.product.dto.CreateProductRequest;
 import com.lubrimanager.product.dto.ProductResponse;
 import com.lubrimanager.product.dto.UpdateProductRequest;
-import com.lubrimanager.product.dto.UpdateProductStatusRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -14,7 +13,6 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -41,13 +39,10 @@ public class ProductController {
     @GetMapping
     @Operation(summary = "Rechercher / lister les produits")
     public PageResponse<ProductResponse> list(@RequestParam(required = false) String q,
-                                              @RequestParam(required = false) Long categoryId,
-                                              @RequestParam(required = false) ProductStatus status,
-                                              @RequestParam(defaultValue = "false") boolean lowStock,
                                               @RequestParam(defaultValue = "0") int page,
                                               @RequestParam(defaultValue = "20") int size) {
         int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
-        Page<Product> result = productService.search(q, categoryId, status, lowStock,
+        Page<Product> result = productService.search(q,
                 PageRequest.of(Math.max(page, 0), safeSize, Sort.by("name").ascending()));
         return PageResponse.of(result, ProductResponse::from);
     }
@@ -75,16 +70,8 @@ public class ProductController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    @Operation(summary = "Modifier un produit (nom, marque, catégorie, prix, TVA, seuil)")
+    @Operation(summary = "Modifier un produit (nom, marque, unité, prix, description)")
     public ProductResponse update(@PathVariable Long id, @Valid @RequestBody UpdateProductRequest request) {
         return ProductResponse.from(productService.update(id, request));
-    }
-
-    @PatchMapping("/{id}/status")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    @Operation(summary = "Activer / désactiver un produit")
-    public ProductResponse updateStatus(@PathVariable Long id,
-                                        @Valid @RequestBody UpdateProductStatusRequest request) {
-        return ProductResponse.from(productService.updateStatus(id, request.status()));
     }
 }

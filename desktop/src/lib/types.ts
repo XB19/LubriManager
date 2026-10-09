@@ -96,63 +96,17 @@ export interface Card {
   createdAt: string;
 }
 
-// ---- Produits & catégories -------------------------------------------------
-export interface Category {
-  id: number;
-  name: string;
-  description: string | null;
-  active: boolean;
-  createdAt: string;
-}
-
-export type ProductStatus = 'ACTIF' | 'INACTIF';
-
+// ---- Produits -------------------------------------------------
 export interface Product {
   id: number;
   reference: string;
   name: string;
-  brand: string | null;
-  categoryId: number;
-  categoryName: string;
-  description: string | null;
+  brand: string;
   unit: string;
   unitPrice: string;
-  vatRate: string;
-  priceExclTax: string;
-  taxAmount: string;
-  stockQuantity: string;
-  alertThreshold: string;
-  lowStock: boolean;
-  status: ProductStatus;
+  description: string | null;
   createdAt: string;
   updatedAt: string;
-}
-
-// ---- Stock --------------------------------------------------------------
-export type InventoryMovementType = 'ENTREE' | 'SORTIE' | 'AJUSTEMENT' | 'INVENTAIRE';
-
-export interface InventoryMovement {
-  id: number;
-  productId: number;
-  productReference: string;
-  productName: string;
-  type: InventoryMovementType;
-  quantity: string;
-  stockBefore: string;
-  stockAfter: string;
-  reference: string | null;
-  reason: string | null;
-  operator: string;
-  createdAt: string;
-}
-
-// ---- Paiements ---------------------------------------------------------------
-export interface PaymentMethod {
-  id: number;
-  code: string;
-  label: string;
-  active: boolean;
-  sortOrder: number;
 }
 
 // ---- Transactions ------------------------------------------------------------
@@ -193,7 +147,6 @@ export interface Recharge {
   customerId: number;
   customerNo: string;
   cardNo: string | null;
-  paymentMethod: string;
   amount: string;
   balanceBefore: string;
   balanceAfter: string;
@@ -202,18 +155,17 @@ export interface Recharge {
   createdAt: string;
 }
 
-// ---- Ventes -------------------------------------------------------------
-export interface SaleItem {
+// ---- Débits carte -------------------------------------------------------------
+export interface PurchaseItem {
   productId: number;
   productReference: string;
   productName: string;
   quantity: string;
   unitPrice: string;
-  vatRate: string;
   lineTotal: string;
 }
 
-export interface Sale {
+export interface Purchase {
   id: number;
   reference: string;
   transactionId: number;
@@ -223,18 +175,16 @@ export interface Sale {
   customerNo: string;
   customerName: string;
   cardNo: string | null;
-  subtotal: string;
-  tax: string;
   total: string;
   balanceBefore: string;
   balanceAfter: string;
   operator: string;
   description: string | null;
   createdAt: string;
-  items: SaleItem[];
+  items: PurchaseItem[];
 }
 
-export interface SaleSummary {
+export interface PurchaseSummary {
   id: number;
   reference: string;
   status: TransactionStatus;
@@ -260,8 +210,6 @@ export interface Dashboard {
     totalCards: number;
     activeCards: number;
     blockedCards: number;
-    lowStockProducts: number;
-    pendingRecharges: number;
   };
   today: DashboardPeriod;
   week: DashboardPeriod;
@@ -273,7 +221,6 @@ export interface AgentDaySummary {
   salesAmount: string;
   rechargeCount: number;
   rechargeAmount: string;
-  rechargesByPaymentMethod: { paymentMethod: string; amount: string; count: number }[];
 }
 
 // ---- Audit -------------------------------------------------------------

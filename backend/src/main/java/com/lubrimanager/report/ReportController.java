@@ -37,7 +37,7 @@ public class ReportController {
     }
 
     @GetMapping("/{type}")
-    @Operation(summary = "Générer un rapport (sales, recharges, transactions, cancellations, stock, audit)")
+    @Operation(summary = "Générer un rapport (purchases, recharges, transactions, cancellations, audit)")
     public ResponseEntity<?> generate(
             @PathVariable ReportType type,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,

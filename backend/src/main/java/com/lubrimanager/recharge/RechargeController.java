@@ -4,7 +4,6 @@ import com.lubrimanager.common.Actor;
 import com.lubrimanager.common.web.PageResponse;
 import com.lubrimanager.recharge.dto.CreateRechargeRequest;
 import com.lubrimanager.recharge.dto.RechargeResponse;
-import com.lubrimanager.recharge.dto.RejectRechargeRequest;
 import com.lubrimanager.security.AppUserDetails;
 import com.lubrimanager.transaction.TransactionStatus;
 import io.swagger.v3.oas.annotations.Operation;
@@ -86,21 +85,6 @@ public class RechargeController {
     @Operation(summary = "Détail d'une recharge")
     public RechargeResponse get(@PathVariable Long id) {
         return rechargeService.get(id);
-    }
-
-    @PostMapping("/{id}/validate")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    @Operation(summary = "Valider une recharge en attente")
-    public RechargeResponse validate(@PathVariable Long id, @AuthenticationPrincipal AppUserDetails current) {
-        return rechargeService.validate(id, actor(current));
-    }
-
-    @PostMapping("/{id}/reject")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    @Operation(summary = "Refuser une recharge en attente (motif obligatoire)")
-    public RechargeResponse reject(@PathVariable Long id, @Valid @RequestBody RejectRechargeRequest request,
-                                   @AuthenticationPrincipal AppUserDetails current) {
-        return rechargeService.reject(id, actor(current), request.reason());
     }
 
     private static Actor actor(AppUserDetails current) {

@@ -3,13 +3,11 @@ package com.lubrimanager.report;
 import com.lubrimanager.audit.AuditLog;
 import com.lubrimanager.audit.AuditLogRepository;
 import com.lubrimanager.common.error.ApiException;
-import com.lubrimanager.product.Product;
-import com.lubrimanager.product.ProductRepository;
+import com.lubrimanager.purchase.PurchaseRepository;
+import com.lubrimanager.purchase.dto.PurchaseSummaryResponse;
 import com.lubrimanager.recharge.RechargeRepository;
 import com.lubrimanager.recharge.dto.RechargeResponse;
 import com.lubrimanager.report.dto.ReportData;
-import com.lubrimanager.sale.SaleRepository;
-import com.lubrimanager.sale.dto.SaleSummaryResponse;
 import com.lubrimanager.transaction.TransactionRepository;
 import com.lubrimanager.transaction.TransactionType;
 import com.lubrimanager.transaction.dto.TransactionResponse;
@@ -31,38 +29,35 @@ public class ReportService {
 
     private static final int MAX_ROWS = 20_000;
 
-    private final SaleRepository sales;
+    private final PurchaseRepository purchases;
     private final RechargeRepository recharges;
     private final TransactionRepository transactions;
-    private final ProductRepository products;
     private final AuditLogRepository auditLogs;
 
-    public ReportService(SaleRepository sales, RechargeRepository recharges, TransactionRepository transactions,
-                         ProductRepository products, AuditLogRepository auditLogs) {
-        this.sales = sales;
+    public ReportService(PurchaseRepository purchases, RechargeRepository recharges,
+                         TransactionRepository transactions, AuditLogRepository auditLogs) {
+        this.purchases = purchases;
         this.recharges = recharges;
         this.transactions = transactions;
-        this.products = products;
         this.auditLogs = auditLogs;
     }
 
     public ReportData generate(ReportType type, Instant from, Instant to) {
         return switch (type) {
-            case SALES -> salesReport(from, to);
+            case PURCHASES -> purchasesReport(from, to);
             case RECHARGES -> rechargesReport(from, to);
             case TRANSACTIONS -> transactionsReport(from, to, null);
             case CANCELLATIONS -> transactionsReport(from, to, TransactionType.ANNULATION);
-            case STOCK -> stockReport();
             case AUDIT -> auditReport(from, to);
         };
     }
 
-    private ReportData salesReport(Instant from, Instant to) {
-        Page<SaleSummaryResponse> page = sales.search(null, null, from, to, sorted());
+    private ReportData purchasesReport(Instant from, Instant to) {
+        Page<PurchaseSummaryResponse> page = purchases.search(null, null, from, to, sorted());
         guard(page.getTotalElements());
         List<List<Object>> rows = page.getContent().stream().map(s -> row(
                 s.reference(), s.status(), s.customerNo(), s.cardNo(), s.total(), s.operator(), s.createdAt())).toList();
-        return new ReportData("Rapport des ventes",
+        return new ReportData("Rapport des débits carte",
                 List.of("Référence", "Statut", "N° client", "Carte", "Total", "Opérateur", "Date"), rows);
     }
 
@@ -70,10 +65,10 @@ public class ReportService {
         Page<RechargeResponse> page = recharges.search(null, null, null, null, from, to, sorted());
         guard(page.getTotalElements());
         List<List<Object>> rows = page.getContent().stream().map(r -> row(
-                r.reference(), r.status(), r.customerNo(), r.cardNo(), r.paymentMethod(), r.amount(),
+                r.reference(), r.status(), r.customerNo(), r.amount(),
                 r.balanceAfter(), r.operator(), r.createdAt())).toList();
         return new ReportData("Rapport des recharges",
-                List.of("Référence", "Statut", "N° client", "Carte", "Paiement", "Montant", "Solde après",
+                List.of("Référence", "Statut", "N° client", "Montant", "Solde après",
                         "Opérateur", "Date"), rows);
     }
 
@@ -87,19 +82,6 @@ public class ReportService {
         return new ReportData(title,
                 List.of("Référence", "Type", "Statut", "Montant", "Solde avant", "Solde après", "N° client",
                         "Carte", "Opérateur", "Date"), rows);
-    }
-
-    private ReportData stockReport() {
-        Page<Product> page = products.search("%", null, null, false,
-                PageRequest.of(0, MAX_ROWS, Sort.by("name").ascending()));
-        guard(page.getTotalElements());
-        List<List<Object>> rows = page.getContent().stream().map(p -> row(
-                p.getReference(), p.getName(), p.getBrand(), p.getCategory().getName(), p.getUnit(),
-                p.getUnitPrice(), p.getStockQuantity(), p.getAlertThreshold(),
-                p.isLowStock() ? "OUI" : "non", p.getStatus())).toList();
-        return new ReportData("État du stock",
-                List.of("Référence", "Produit", "Marque", "Catégorie", "Unité", "Prix TTC", "Stock", "Seuil",
-                        "Sous seuil", "Statut"), rows);
     }
 
     private ReportData auditReport(Instant from, Instant to) {

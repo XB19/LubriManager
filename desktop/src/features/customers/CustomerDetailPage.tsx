@@ -3,7 +3,6 @@ import { useDisclosure } from '@mantine/hooks';
 import { IconArrowLeft, IconChevronDown, IconCreditCardPay, IconPlus } from '@tabler/icons-react';
 import { DataTable } from 'mantine-datatable';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../../lib/api';
 import { dateTime, money } from '../../lib/format';
@@ -23,7 +22,7 @@ export function CustomerDetailPage() {
   const qc = useQueryClient();
   const isStaff = useIsStaff();
   const [cardFormOpen, cardForm] = useDisclosure(false);
-  const [rechargeCard, setRechargeCard] = useState<CardT | null>(null);
+  const [rechargeOpen, recharge] = useDisclosure(false);
 
   const customer = useQuery({
     queryKey: ['customer', id],
@@ -106,9 +105,18 @@ export function CustomerDetailPage() {
           </Stack>
         </Card>
         <Card withBorder padding="md" radius="md">
-          <Title order={5} mb="xs">
-            Compte
-          </Title>
+          <Group justify="space-between" mb="xs">
+            <Title order={5}>Compte</Title>
+            {isStaff && c && (
+              <Button
+                size="compact-sm"
+                leftSection={<IconCreditCardPay size={14} />}
+                onClick={recharge.open}
+              >
+                Recharger
+              </Button>
+            )}
+          </Group>
           <Text size="xl" fw={700}>
             {account.data ? money(account.data.balance) : '…'}
           </Text>
@@ -137,28 +145,16 @@ export function CustomerDetailPage() {
           { accessor: 'status', title: 'Statut', render: (r) => <StatusBadge value={r.status} /> },
           { accessor: 'balance', title: 'Solde', render: (r) => money(r.balance) },
           { accessor: 'activatedAt', title: 'Activée le', render: (r) => dateTime(r.activatedAt) },
-          {
-            accessor: 'actions',
-            title: '',
-            textAlign: 'right',
-            render: (r) => (
-              <Button
-                size="compact-xs"
-                variant="light"
-                leftSection={<IconCreditCardPay size={14} />}
-                disabled={r.status !== 'ACTIVE'}
-                onClick={() => setRechargeCard(r)}
-              >
-                Recharger
-              </Button>
-            ),
-          },
         ]}
       />
 
       <CardForm opened={cardFormOpen} onClose={cardForm.close} customerId={Number(id)} />
-      {rechargeCard && (
-        <RechargeModal opened onClose={() => setRechargeCard(null)} card={rechargeCard} />
+      {c && (
+        <RechargeModal
+          opened={rechargeOpen}
+          onClose={recharge.close}
+          customer={{ id: c.id, fullName: c.fullName, customerNo: c.customerNo }}
+        />
       )}
     </>
   );

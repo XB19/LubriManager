@@ -12,18 +12,17 @@ import org.springframework.data.repository.query.Param;
 
 public interface RechargeRepository extends JpaRepository<Recharge, Long> {
 
-    @Query("select r from Recharge r join fetch r.transaction join fetch r.paymentMethod where r.id = :id")
+    @Query("select r from Recharge r join fetch r.transaction where r.id = :id")
     Optional<Recharge> findDetailById(@Param("id") Long id);
 
     @Query(value = """
             select new com.lubrimanager.recharge.dto.RechargeResponse(
                 r.id, t.reference, t.id, t.status,
                 t.account.id, t.customer.id, t.customer.customerNo, c.cardNo,
-                pm.code, t.amount, t.balanceBefore, t.balanceAfter,
+                t.amount, t.balanceBefore, t.balanceAfter,
                 u.username, r.comment, r.createdAt)
             from Recharge r
               join r.transaction t
-              join r.paymentMethod pm
               join t.user u
               left join t.card c
             where (:status is null or t.status = :status)

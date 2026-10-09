@@ -7,11 +7,10 @@ import { CustomersPage } from './features/customers/CustomersPage';
 import { CustomerDetailPage } from './features/customers/CustomerDetailPage';
 import { CardsPage } from './features/cards/CardsPage';
 import { RechargesPage } from './features/recharges/RechargesPage';
-import { SalesPage } from './features/sales/SalesPage';
-import { NewSalePage } from './features/sales/NewSalePage';
+import { PurchasesPage } from './features/purchases/PurchasesPage';
+import { NewPurchasePage } from './features/purchases/NewPurchasePage';
 import { TransactionsPage } from './features/transactions/TransactionsPage';
 import { ProductsPage } from './features/products/ProductsPage';
-import { InventoryPage } from './features/inventory/InventoryPage';
 import { ReportsPage } from './features/reports/ReportsPage';
 import { AuditPage } from './features/audit/AuditPage';
 import { UsersPage } from './features/users/UsersPage';
@@ -33,11 +32,10 @@ export function App() {
         <Route path="/clients/:id" element={<CustomerDetailPage />} />
         <Route path="/cartes" element={<CardsPage />} />
         <Route path="/recharges" element={<RechargesPage />} />
-        <Route path="/ventes" element={<SalesPage />} />
-        <Route path="/ventes/nouvelle" element={<NewSalePage />} />
+        <Route path="/achats" element={<PurchasesPage />} />
+        <Route path="/achats/nouveau" element={<NewPurchasePage />} />
         <Route path="/transactions" element={<TransactionsPage />} />
         <Route path="/produits" element={<ProductsPage />} />
-        <Route path="/stock" element={<InventoryPage />} />
         <Route
           path="/rapports"
           element={

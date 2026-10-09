@@ -26,24 +26,4 @@ public final class MoneyRules {
     public static BigDecimal scaled(BigDecimal amount) {
         return amount.setScale(2, java.math.RoundingMode.UNNECESSARY);
     }
-
-    /**
-     * Montant hors taxe d'un prix TTC (DEC-04 : les prix sont saisis TTC).
-     * {@code ratePercent} en pourcentage (ex. {@code 18.00}). Résultat informatif à 2 décimales.
-     */
-    public static BigDecimal exclTax(BigDecimal ttc, BigDecimal ratePercent) {
-        if (ttc == null) {
-            return null;
-        }
-        BigDecimal divisor = BigDecimal.ONE.add(ratePercent.movePointLeft(2));
-        return ttc.divide(divisor, 2, java.math.RoundingMode.HALF_UP);
-    }
-
-    /** Part de TVA contenue dans un prix TTC. */
-    public static BigDecimal taxOf(BigDecimal ttc, BigDecimal ratePercent) {
-        if (ttc == null) {
-            return null;
-        }
-        return ttc.subtract(exclTax(ttc, ratePercent));
-    }
 }

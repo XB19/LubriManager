@@ -29,3 +29,10 @@ desktop/.vite/
 # --- Tauri (Rust) ---
 desktop/src-tauri/target/
 desktop/src-tauri/gen/
+
+# --- Base de données externe (dump SQL Server, données réelles) ---
+DataBase/
+*.bak
+*.mdf
+*.ldf
+*.ndf

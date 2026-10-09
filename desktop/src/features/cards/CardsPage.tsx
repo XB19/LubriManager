@@ -234,7 +234,17 @@ export function CardsPage() {
         onPageChange={setPage}
       />
       <NewCardModal opened={newOpen} onClose={newModal.close} />
-      {rechargeCard && <RechargeModal opened onClose={() => setRechargeCard(null)} card={rechargeCard} />}
+      {rechargeCard && (
+        <RechargeModal
+          opened
+          onClose={() => setRechargeCard(null)}
+          customer={{
+            id: rechargeCard.customerId,
+            fullName: rechargeCard.customerName,
+            customerNo: rechargeCard.customerNo,
+          }}
+        />
+      )}
     </>
   );
 }

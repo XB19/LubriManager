@@ -15,9 +15,7 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     boolean existsByReference(String reference);
 
-    boolean existsByCategoryId(Long categoryId);
-
-    /** Verrou pessimiste : sérialise les mouvements de stock d'un même produit. */
+    /** Verrou pessimiste : sérialise les débits carte portant sur un même produit. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from Product p where p.id = :id")
     Optional<Product> lockById(@Param("id") Long id);
@@ -25,16 +23,9 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     /** {@code pattern} est un motif LIKE déjà minusculisé ({@code %terme%}) ou {@code %} pour « tout ». */
     @Query("""
             select p from Product p
-            where (lower(p.reference) like :pattern
-                   or lower(p.name) like :pattern
-                   or (p.brand is not null and lower(p.brand) like :pattern))
-              and (:categoryId is null or p.category.id = :categoryId)
-              and (:status is null or p.status = :status)
-              and (:lowStockOnly = false or p.stockQuantity <= p.alertThreshold)
+            where lower(p.reference) like :pattern
+               or lower(p.name) like :pattern
+               or lower(p.brand) like :pattern
             """)
-    Page<Product> search(@Param("pattern") String pattern,
-                         @Param("categoryId") Long categoryId,
-                         @Param("status") ProductStatus status,
-                         @Param("lowStockOnly") boolean lowStockOnly,
-                         Pageable pageable);
+    Page<Product> search(@Param("pattern") String pattern, Pageable pageable);
 }

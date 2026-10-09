@@ -17,4 +17,9 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select a from Account a where a.id = :id")
     Optional<Account> lockById(@Param("id") Long id);
+
+    /** Verrou pessimiste sur le compte d'un client (relation 1–1). */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select a from Account a where a.customer.id = :customerId")
+    Optional<Account> lockByCustomerId(@Param("customerId") Long customerId);
 }

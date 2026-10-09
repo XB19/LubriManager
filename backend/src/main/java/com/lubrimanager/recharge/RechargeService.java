@@ -5,9 +5,6 @@ import com.lubrimanager.account.AccountRepository;
 import com.lubrimanager.audit.AuditAction;
 import com.lubrimanager.audit.AuditService;
 import com.lubrimanager.branch.BranchRepository;
-import com.lubrimanager.card.Card;
-import com.lubrimanager.card.CardRepository;
-import com.lubrimanager.card.CardStatus;
 import com.lubrimanager.common.Actor;
 import com.lubrimanager.common.error.ApiException;
 import com.lubrimanager.common.error.ErrorCode;
@@ -15,12 +12,8 @@ import com.lubrimanager.common.idempotency.IdempotencyService;
 import com.lubrimanager.common.money.MoneyRules;
 import com.lubrimanager.common.reference.ReferenceCounterService;
 import com.lubrimanager.customer.Customer;
+import com.lubrimanager.customer.CustomerRepository;
 import com.lubrimanager.customer.CustomerStatus;
-import com.lubrimanager.notification.NotificationService;
-import com.lubrimanager.notification.NotificationSeverity;
-import com.lubrimanager.notification.NotificationType;
-import com.lubrimanager.payment.PaymentMethod;
-import com.lubrimanager.payment.PaymentMethodService;
 import com.lubrimanager.recharge.dto.CreateRechargeRequest;
 import com.lubrimanager.recharge.dto.RechargeResponse;
 import com.lubrimanager.transaction.Transaction;
@@ -44,18 +37,12 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
 
 /**
- * Recharges (crédit d'un compte).
+ * Recharges (crédit d'un compte, en espèces). Flux : sélection du client, saisie
+ * du montant, validation immédiate.
  *
- * <p>Intégrité financière (Règle n°2, §15, §23-24) :
- * <ul>
- *   <li><b>Atomicité</b> — l'écriture au grand livre et la mise à jour du solde
- *       sont dans une seule transaction ; toute erreur ⇒ ROLLBACK complet.</li>
- *   <li><b>Concurrence</b> — verrou pessimiste sur la ligne compte.</li>
- *   <li><b>Idempotence</b> — clé {@code Idempotency-Key} obligatoire ; contrainte
- *       d'unicité en base = garde anti-doublon (RG-09).</li>
- *   <li><b>Validation MANAGER</b> — au-delà d'un seuil (DEC-03), la recharge est
- *       créée EN_ATTENTE et le solde n'est mouvementé qu'à la validation.</li>
- * </ul>
+ * <p>Intégrité financière : l'écriture au grand livre et la mise à jour du solde
+ * sont dans une seule transaction atomique ; verrou pessimiste sur la ligne
+ * compte ; en-tête {@code Idempotency-Key} obligatoire (garde anti double-envoi).
  */
 @Service
 public class RechargeService {
@@ -68,37 +55,30 @@ public class RechargeService {
     private final RechargeRepository recharges;
     private final TransactionRepository transactions;
     private final AccountRepository accounts;
-    private final CardRepository cards;
-    private final PaymentMethodService paymentMethods;
+    private final CustomerRepository customers;
     private final ReferenceCounterService references;
     private final IdempotencyService idempotency;
-    private final RechargeProperties properties;
     private final BranchRepository branches;
     private final com.lubrimanager.user.UserRepository users;
     private final AuditService audit;
-    private final NotificationService notifications;
     private final Clock clock;
     private final TransactionTemplate tx;
 
     public RechargeService(RechargeRepository recharges, TransactionRepository transactions,
-                           AccountRepository accounts, CardRepository cards, PaymentMethodService paymentMethods,
+                           AccountRepository accounts, CustomerRepository customers,
                            ReferenceCounterService references, IdempotencyService idempotency,
-                           RechargeProperties properties, BranchRepository branches,
-                           com.lubrimanager.user.UserRepository users, AuditService audit,
-                           NotificationService notifications, Clock clock,
+                           BranchRepository branches, com.lubrimanager.user.UserRepository users,
+                           AuditService audit, Clock clock,
                            PlatformTransactionManager transactionManager) {
         this.recharges = recharges;
         this.transactions = transactions;
         this.accounts = accounts;
-        this.cards = cards;
-        this.paymentMethods = paymentMethods;
+        this.customers = customers;
         this.references = references;
         this.idempotency = idempotency;
-        this.properties = properties;
         this.branches = branches;
         this.users = users;
         this.audit = audit;
-        this.notifications = notifications;
         this.clock = clock;
         this.tx = new TransactionTemplate(transactionManager);
     }
@@ -121,7 +101,6 @@ public class RechargeService {
         try {
             return tx.execute(status -> doCreate(request, idempotencyKey, hash, actor));
         } catch (DataIntegrityViolationException concurrentDuplicate) {
-            // Une requête concurrente portant la même clé a validé en premier.
             return idempotency.lookup(idempotencyKey, hash)
                     .map(stored -> idempotency.deserialize(stored, RechargeResponse.class))
                     .orElseThrow(() -> concurrentDuplicate);
@@ -131,138 +110,58 @@ public class RechargeService {
     private RechargeResponse doCreate(CreateRechargeRequest req, String idempotencyKey, String hash, Actor actor) {
         idempotency.reserve(idempotencyKey, ENDPOINT, hash); // saveAndFlush ⇒ doublon rejeté ici
 
-        Card card = cards.findById(req.cardId())
-                .orElseThrow(() -> ApiException.notFound("Carte %d introuvable".formatted(req.cardId())));
-        Account account = accounts.lockById(card.getAccount().getId())
-                .orElseThrow(() -> ApiException.notFound("Compte introuvable"));
-        Customer customer = card.getCustomer();
+        Customer customer = customers.findById(req.customerId())
+                .orElseThrow(() -> ApiException.notFound("Client %d introuvable".formatted(req.customerId())));
+        Account account = accounts.lockByCustomerId(customer.getId())
+                .orElseThrow(() -> ApiException.notFound("Compte du client introuvable"));
 
-        require(card.getStatus() == CardStatus.ACTIVE, "La carte n'est pas active.");
         require(customer.getStatus() == CustomerStatus.ACTIF, "Le client n'est pas actif.");
         require(account.isActive(), "Le compte n'est pas actif.");
 
         BigDecimal amount = req.amount();
         require(MoneyRules.isStrictlyPositive(amount), "Le montant doit être positif.");
         require(MoneyRules.isWhole(amount), "Le montant doit être un nombre entier de FCFA.");
-        require(amount.compareTo(properties.maxAmount()) <= 0,
-                "Montant supérieur au plafond autorisé (%s FCFA).".formatted(properties.maxAmount().toPlainString()));
-
-        PaymentMethod method = paymentMethods.requireActive(req.paymentMethodId());
 
         BigDecimal before = account.getBalance();
         BigDecimal after = before.add(amount);
-        boolean pending = amount.compareTo(properties.approvalThreshold()) > 0;
-        TransactionStatus status = pending ? TransactionStatus.EN_ATTENTE : TransactionStatus.VALIDEE;
-
         String reference = references.nextDated(REF_PREFIX, LocalDate.now(clock), REF_WIDTH);
 
         Transaction txn = new Transaction();
         txn.setReference(reference);
         txn.setType(TransactionType.RECHARGE);
-        txn.setStatus(status);
+        txn.setStatus(TransactionStatus.VALIDEE);
         txn.setAmount(MoneyRules.scaled(amount));
         txn.setAccount(account);
-        txn.setCard(card);
+        txn.setCard(null);
         txn.setCustomer(customer);
         txn.setUser(users.getReferenceById(actor.id()));
         txn.setBranch(branches.getReferenceById(actor.branchId()));
         txn.setBalanceBefore(MoneyRules.scaled(before));
         txn.setBalanceAfter(MoneyRules.scaled(after));
         txn.setIdempotencyKey(idempotencyKey);
-        txn.setDescription("Recharge %s • %s%s".formatted(reference, method.getCode(),
+        txn.setDescription("Recharge %s • espèces%s".formatted(reference,
                 StringUtils.hasText(req.comment()) ? " • " + req.comment().trim() : ""));
         transactions.save(txn);
 
-        if (!pending) {
-            account.setBalance(after); // RG-00 : le solde ne bouge que par une écriture VALIDEE
-        }
+        account.setBalance(after);
 
         Recharge recharge = new Recharge();
         recharge.setTransaction(txn);
-        recharge.setPaymentMethod(method);
         recharge.setComment(StringUtils.hasText(req.comment()) ? req.comment().trim() : null);
         recharges.save(recharge);
 
-        RechargeResponse response = toResponse(recharge, txn, account, card, customer, method, actor.username());
+        RechargeResponse response = toResponse(recharge, txn, account, customer, actor.username());
         idempotency.complete(idempotencyKey, 201, response);
 
         audit.record(AuditAction.RECHARGE_CREATED, "recharge", recharge.getId(), reference,
-                "Recharge %s de %s FCFA sur %s (%s) — %s".formatted(reference, amount.toPlainString(),
-                        card.getCardNo(), customer.getCustomerNo(), status),
+                "Recharge %s de %s FCFA sur le compte de %s".formatted(reference, amount.toPlainString(),
+                        customer.getCustomerNo()),
                 actor);
 
-        if (pending) {
-            notifications.staffAlert(NotificationType.RECHARGE_PENDING, NotificationSeverity.ALERTE,
-                    "Recharge à valider",
-                    "%s : %s FCFA sur %s (%s) attend une validation.".formatted(reference, amount.toPlainString(),
-                            card.getCardNo(), customer.getCustomerNo()),
-                    reference);
-        }
-
-        log.info("Recharge {} : {} FCFA sur {} ({}) — statut {}",
-                reference, amount.toPlainString(), card.getCardNo(), customer.getCustomerNo(), status);
+        log.info("Recharge {} : {} FCFA sur le compte de {} — solde {} → {}",
+                reference, amount.toPlainString(), customer.getCustomerNo(),
+                before.toPlainString(), after.toPlainString());
         return response;
-    }
-
-    // ------------------------------------------------------------------
-    // Validation / refus d'une recharge en attente
-    // ------------------------------------------------------------------
-
-    @Transactional
-    public RechargeResponse validate(Long rechargeId, Actor approver) {
-        Recharge recharge = loadForDecision(rechargeId);
-        Transaction txn = recharge.getTransaction();
-
-        Account account = accounts.lockById(txn.getAccount().getId())
-                .orElseThrow(() -> ApiException.notFound("Compte introuvable"));
-        Card card = txn.getCard();
-        Customer customer = txn.getCustomer();
-
-        require(card == null || card.getStatus() == CardStatus.ACTIVE, "La carte n'est plus active.");
-        require(customer.getStatus() == CustomerStatus.ACTIF, "Le client n'est plus actif.");
-        require(account.isActive(), "Le compte n'est plus actif.");
-
-        BigDecimal before = account.getBalance();
-        BigDecimal after = before.add(txn.getAmount());
-
-        txn.setBalanceBefore(MoneyRules.scaled(before));
-        txn.setBalanceAfter(MoneyRules.scaled(after));
-        txn.setStatus(TransactionStatus.VALIDEE);
-        account.setBalance(after);
-
-        audit.record(AuditAction.RECHARGE_VALIDATED, "recharge", recharge.getId(), txn.getReference(),
-                "Recharge %s validée : solde %s → %s".formatted(txn.getReference(),
-                        before.toPlainString(), after.toPlainString()),
-                approver);
-        log.info("Recharge {} validée par {} : solde {} → {}",
-                txn.getReference(), approver.username(), before.toPlainString(), after.toPlainString());
-        return toResponse(recharge, txn, account, card, customer, recharge.getPaymentMethod(), lookupUser(txn));
-    }
-
-    @Transactional
-    public RechargeResponse reject(Long rechargeId, Actor approver, String reason) {
-        Recharge recharge = loadForDecision(rechargeId);
-        Transaction txn = recharge.getTransaction();
-
-        txn.setStatus(TransactionStatus.REFUSEE);
-        txn.setDescription(txn.getDescription() + " • REFUSÉE : " + reason.trim());
-        recharge.setRejectedReason(reason.trim());
-
-        audit.record(AuditAction.RECHARGE_REJECTED, "recharge", recharge.getId(), txn.getReference(),
-                "Recharge %s refusée : %s".formatted(txn.getReference(), reason.trim()), approver);
-        log.info("Recharge {} refusée par {} (motif : {})", txn.getReference(), approver.username(), reason.trim());
-        return toResponse(recharge, txn, txn.getAccount(), txn.getCard(), txn.getCustomer(),
-                recharge.getPaymentMethod(), lookupUser(txn));
-    }
-
-    private Recharge loadForDecision(Long rechargeId) {
-        Recharge recharge = recharges.findDetailById(rechargeId)
-                .orElseThrow(() -> ApiException.notFound("Recharge %d introuvable".formatted(rechargeId)));
-        if (recharge.getTransaction().getStatus() != TransactionStatus.EN_ATTENTE) {
-            throw new ApiException(ErrorCode.CONFLICT,
-                    "Cette recharge n'est plus en attente (statut : %s).".formatted(recharge.getTransaction().getStatus()));
-        }
-        return recharge;
     }
 
     // ------------------------------------------------------------------
@@ -280,8 +179,7 @@ public class RechargeService {
         Recharge recharge = recharges.findDetailById(id)
                 .orElseThrow(() -> ApiException.notFound("Recharge %d introuvable".formatted(id)));
         Transaction txn = recharge.getTransaction();
-        return toResponse(recharge, txn, txn.getAccount(), txn.getCard(), txn.getCustomer(),
-                recharge.getPaymentMethod(), lookupUser(txn));
+        return toResponse(recharge, txn, txn.getAccount(), txn.getCustomer(), lookupUser(txn));
     }
 
     // ------------------------------------------------------------------
@@ -296,8 +194,8 @@ public class RechargeService {
         return users.findById(txn.getUser().getId()).map(com.lubrimanager.user.User::getUsername).orElse("—");
     }
 
-    private RechargeResponse toResponse(Recharge recharge, Transaction txn, Account account, Card card,
-                                        Customer customer, PaymentMethod method, String operator) {
+    private RechargeResponse toResponse(Recharge recharge, Transaction txn, Account account, Customer customer,
+                                        String operator) {
         return new RechargeResponse(
                 recharge.getId(),
                 txn.getReference(),
@@ -306,8 +204,7 @@ public class RechargeService {
                 account.getId(),
                 customer.getId(),
                 customer.getCustomerNo(),
-                card != null ? card.getCardNo() : null,
-                method.getCode(),
+                txn.getCard() != null ? txn.getCard().getCardNo() : null,
                 txn.getAmount(),
                 txn.getBalanceBefore(),
                 txn.getBalanceAfter(),

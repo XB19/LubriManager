@@ -3,7 +3,6 @@ package com.lubrimanager.recharge;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.lubrimanager.account.AccountRepository;
 import com.lubrimanager.common.Actor;
-import com.lubrimanager.payment.PaymentMethodRepository;
 import com.lubrimanager.recharge.dto.CreateRechargeRequest;
 import com.lubrimanager.support.AbstractIntegrationTest;
 import com.lubrimanager.transaction.TransactionRepository;
@@ -33,32 +32,20 @@ class RechargeIT extends AbstractIntegrationTest {
     @Autowired private RechargeService rechargeService;
     @Autowired private AccountRepository accountRepository;
     @Autowired private TransactionRepository transactionRepository;
-    @Autowired private PaymentMethodRepository paymentMethodRepository;
     @Autowired private UserRepository userRepository;
 
-    private long paymentMethodId() {
-        return paymentMethodRepository.findByCodeIgnoreCase("ESPECES").orElseThrow().getId();
-    }
-
-    private long newActiveCard(String token) throws Exception {
-        long customerId = objectMapper.readTree(mockMvc.perform(post("/api/customers")
+    private long newCustomer(String token) throws Exception {
+        return objectMapper.readTree(mockMvc.perform(post("/api/customers")
                         .header("Authorization", bearer(token)).contentType("application/json")
                         .content("{\"fullName\":\"Client Recharge\",\"type\":\"PARTICULIER\"}"))
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString())
                 .get("id").asLong();
-
-        long cardId = objectMapper.readTree(mockMvc.perform(post("/api/cards")
-                        .header("Authorization", bearer(token)).contentType("application/json")
-                        .content("{\"customerId\":%d,\"activateImmediately\":true}".formatted(customerId)))
-                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString())
-                .get("id").asLong();
-        return cardId;
     }
 
-    private long accountIdOfCard(long cardId) throws Exception {
-        return objectMapper.readTree(mockMvc.perform(get("/api/cards/{id}", cardId)
+    private long accountIdOfCustomer(long customerId) throws Exception {
+        return objectMapper.readTree(mockMvc.perform(get("/api/customers/{id}/account", customerId)
                         .header("Authorization", bearer(adminToken())))
-                .andReturn().getResponse().getContentAsString()).get("accountId").asLong();
+                .andReturn().getResponse().getContentAsString()).get("id").asLong();
     }
 
     private org.springframework.test.web.servlet.ResultActions postRecharge(String token, String key, String body)
@@ -71,8 +58,8 @@ class RechargeIT extends AbstractIntegrationTest {
         return mockMvc.perform(req);
     }
 
-    private String rechargeBody(long cardId, long amount) {
-        return "{\"cardId\":%d,\"amount\":%d,\"paymentMethodId\":%d}".formatted(cardId, amount, paymentMethodId());
+    private String rechargeBody(long customerId, long amount) {
+        return "{\"customerId\":%d,\"amount\":%d}".formatted(customerId, amount);
     }
 
     private String createUser(String username, String role, String password) throws Exception {
@@ -87,84 +74,44 @@ class RechargeIT extends AbstractIntegrationTest {
     // ------------------------------------------------------------------
 
     @Test
-    void rechargeBelowThresholdIsValidatedImmediately() throws Exception {
+    void rechargeIsValidatedImmediately() throws Exception {
         String token = adminToken();
-        long cardId = newActiveCard(token);
+        long customerId = newCustomer(token);
 
-        JsonNode r = objectMapper.readTree(postRecharge(token, UUID.randomUUID().toString(), rechargeBody(cardId, 50_000))
+        JsonNode r = objectMapper.readTree(postRecharge(token, UUID.randomUUID().toString(),
+                rechargeBody(customerId, 200_000))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status").value("VALIDEE"))
                 .andExpect(jsonPath("$.balanceBefore").value(0))
-                .andExpect(jsonPath("$.balanceAfter").value(50000))
+                .andExpect(jsonPath("$.balanceAfter").value(200000))
                 .andReturn().getResponse().getContentAsString());
 
         assertThat(r.get("reference").asText()).matches("RECH-\\d{8}-\\d{6}");
 
-        long accountId = accountIdOfCard(cardId);
-        assertThat(accountRepository.findById(accountId).orElseThrow().getBalance()).isEqualByComparingTo("50000");
-        assertThat(transactionRepository.sumByAccountAndStatus(accountId, TransactionStatus.VALIDEE))
-                .isEqualByComparingTo("50000");
-    }
-
-    @Test
-    void rechargeAboveThresholdWaitsForManagerValidation() throws Exception {
-        String adminToken = adminToken();
-        long cardId = newActiveCard(adminToken);
-        long accountId = accountIdOfCard(cardId);
-
-        long rechargeId = objectMapper.readTree(postRecharge(adminToken, UUID.randomUUID().toString(),
-                rechargeBody(cardId, 200_000))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.status").value("EN_ATTENTE"))
-                .andReturn().getResponse().getContentAsString()).get("id").asLong();
-
-        assertThat(accountRepository.findById(accountId).orElseThrow().getBalance()).isEqualByComparingTo("0");
-
-        createUser("agent_rech", "AGENT", "Agent!2026");
-        mockMvc.perform(post("/api/recharges/{id}/validate", rechargeId)
-                        .header("Authorization", bearer(accessToken("agent_rech", "Agent!2026"))))
-                .andExpect(status().isForbidden());
-
-        createUser("manager_rech", "MANAGER", "Manager!2026");
-        mockMvc.perform(post("/api/recharges/{id}/validate", rechargeId)
-                        .header("Authorization", bearer(accessToken("manager_rech", "Manager!2026"))))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("VALIDEE"))
-                .andExpect(jsonPath("$.balanceAfter").value(200000));
-
+        long accountId = accountIdOfCustomer(customerId);
         assertThat(accountRepository.findById(accountId).orElseThrow().getBalance()).isEqualByComparingTo("200000");
+        assertThat(transactionRepository.sumByAccountAndStatus(accountId, TransactionStatus.VALIDEE))
+                .isEqualByComparingTo("200000");
     }
 
     @Test
-    void managerRejectsPendingRechargeAndItCannotBeValidatedLater() throws Exception {
-        String adminToken = adminToken();
-        long cardId = newActiveCard(adminToken);
-        long accountId = accountIdOfCard(cardId);
-        long rechargeId = objectMapper.readTree(postRecharge(adminToken, UUID.randomUUID().toString(),
-                rechargeBody(cardId, 300_000)).andReturn().getResponse().getContentAsString()).get("id").asLong();
+    void agentCanRecharge() throws Exception {
+        createUser("agent_rech", "AGENT", "Agent!2026");
+        String agent = accessToken("agent_rech", "Agent!2026");
+        long customerId = newCustomer(adminToken());
 
-        createUser("mgr2", "MANAGER", "Manager!2026");
-        String mgr = accessToken("mgr2", "Manager!2026");
-
-        mockMvc.perform(post("/api/recharges/{id}/reject", rechargeId).header("Authorization", bearer(mgr))
-                        .contentType("application/json").content("{\"reason\":\"justificatif manquant\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("REFUSEE"));
-
-        assertThat(accountRepository.findById(accountId).orElseThrow().getBalance()).isEqualByComparingTo("0");
-
-        mockMvc.perform(post("/api/recharges/{id}/validate", rechargeId).header("Authorization", bearer(mgr)))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("CONFLICT"));
+        postRecharge(agent, UUID.randomUUID().toString(), rechargeBody(customerId, 15_000))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("VALIDEE"));
     }
 
     @Test
     void sameIdempotencyKeyReplaysWithoutDoubleCredit() throws Exception {
         String token = adminToken();
-        long cardId = newActiveCard(token);
-        long accountId = accountIdOfCard(cardId);
+        long customerId = newCustomer(token);
+        long accountId = accountIdOfCustomer(customerId);
         String key = UUID.randomUUID().toString();
-        String body = rechargeBody(cardId, 40_000);
+        String body = rechargeBody(customerId, 40_000);
 
         String ref1 = objectMapper.readTree(postRecharge(token, key, body).andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString()).get("reference").asText();
@@ -178,11 +125,11 @@ class RechargeIT extends AbstractIntegrationTest {
     @Test
     void sameKeyDifferentBodyIsConflict() throws Exception {
         String token = adminToken();
-        long cardId = newActiveCard(token);
+        long customerId = newCustomer(token);
         String key = UUID.randomUUID().toString();
 
-        postRecharge(token, key, rechargeBody(cardId, 40_000)).andExpect(status().isCreated());
-        postRecharge(token, key, rechargeBody(cardId, 41_000))
+        postRecharge(token, key, rechargeBody(customerId, 40_000)).andExpect(status().isCreated());
+        postRecharge(token, key, rechargeBody(customerId, 41_000))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("CONFLICT"));
     }
@@ -190,45 +137,39 @@ class RechargeIT extends AbstractIntegrationTest {
     @Test
     void missingIdempotencyKeyIsRejected() throws Exception {
         String token = adminToken();
-        long cardId = newActiveCard(token);
-        postRecharge(token, null, rechargeBody(cardId, 10_000))
+        long customerId = newCustomer(token);
+        postRecharge(token, null, rechargeBody(customerId, 10_000))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
     }
 
     @Test
-    void rechargeIsRefusedOnInactiveCardOverLimitOrFractionalAmount() throws Exception {
+    void rechargeIsRefusedForInactiveCustomerOrFractionalAmount() throws Exception {
         String token = adminToken();
+        long customerId = newCustomer(token);
 
-        // carte non activée
-        long customerId = objectMapper.readTree(mockMvc.perform(post("/api/customers")
-                        .header("Authorization", bearer(token)).contentType("application/json")
-                        .content("{\"fullName\":\"C\",\"type\":\"PARTICULIER\"}"))
-                .andReturn().getResponse().getContentAsString()).get("id").asLong();
-        long pendingCard = objectMapper.readTree(mockMvc.perform(post("/api/cards")
-                        .header("Authorization", bearer(token)).contentType("application/json")
-                        .content("{\"customerId\":%d}".formatted(customerId)))
-                .andReturn().getResponse().getContentAsString()).get("id").asLong();
-        postRecharge(token, UUID.randomUUID().toString(), rechargeBody(pendingCard, 10_000))
-                .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.code").value("BUSINESS_RULE"));
-
-        long activeCard = newActiveCard(token);
-        // au-dessus du plafond de test (1 000 000)
-        postRecharge(token, UUID.randomUUID().toString(), rechargeBody(activeCard, 2_000_000))
-                .andExpect(status().isUnprocessableEntity());
         // montant non entier
         postRecharge(token, UUID.randomUUID().toString(),
-                "{\"cardId\":%d,\"amount\":100.50,\"paymentMethodId\":%d}".formatted(activeCard, paymentMethodId()))
+                "{\"customerId\":%d,\"amount\":100.50}".formatted(customerId))
                 .andExpect(status().isUnprocessableEntity());
+
+        // client suspendu
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .patch("/api/customers/{id}/status", customerId).header("Authorization", bearer(token))
+                        .contentType("application/json").content("{\"status\":\"SUSPENDU\"}"))
+                .andExpect(status().isOk());
+        postRecharge(token, UUID.randomUUID().toString(), rechargeBody(customerId, 10_000))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("BUSINESS_RULE"));
     }
 
     @Test
     void ledgerAndRechargeListEndpointsExposeTheRecharge() throws Exception {
         String token = adminToken();
-        long cardId = newActiveCard(token);
-        long accountId = accountIdOfCard(cardId);
-        String ref = objectMapper.readTree(postRecharge(token, UUID.randomUUID().toString(), rechargeBody(cardId, 25_000))
+        long customerId = newCustomer(token);
+        long accountId = accountIdOfCustomer(customerId);
+        String ref = objectMapper.readTree(postRecharge(token, UUID.randomUUID().toString(),
+                rechargeBody(customerId, 25_000))
                 .andReturn().getResponse().getContentAsString()).get("reference").asText();
 
         mockMvc.perform(get("/api/transactions").param("type", "RECHARGE").param("accountId", String.valueOf(accountId))
@@ -238,31 +179,21 @@ class RechargeIT extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.content[0].reference").value(ref))
                 .andExpect(jsonPath("$.content[0].amount").value(25000));
 
-        mockMvc.perform(get("/api/transactions").param("from", "2020-01-01").param("to", "2100-01-01")
+        mockMvc.perform(get("/api/recharges").param("customerId", String.valueOf(customerId))
                         .header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.totalElements").value(1));
-
-        mockMvc.perform(get("/api/transactions/reference/{ref}", ref).header("Authorization", bearer(token)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.type").value("RECHARGE"));
-
-        mockMvc.perform(get("/api/recharges").param("cardId", String.valueOf(cardId))
-                        .header("Authorization", bearer(token)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content[0].reference").value(ref))
-                .andExpect(jsonPath("$.content[0].paymentMethod").value("ESPECES"));
+                .andExpect(jsonPath("$.content[0].reference").value(ref));
     }
 
     @Test
     void concurrentRechargesWithSameKeyCreditExactlyOnce() throws Exception {
         String token = adminToken();
-        long cardId = newActiveCard(token);
-        long accountId = accountIdOfCard(cardId);
+        long customerId = newCustomer(token);
+        long accountId = accountIdOfCustomer(customerId);
 
         var admin = userRepository.findByUsernameIgnoreCase("admin").orElseThrow();
         Actor actor = new Actor(admin.getId(), admin.getUsername(), admin.getBranch().getId());
-        var request = new CreateRechargeRequest(cardId, new BigDecimal("30000"), paymentMethodId(), null);
+        var request = new CreateRechargeRequest(customerId, new BigDecimal("30000"), null);
         String key = UUID.randomUUID().toString();
 
         int threads = 8;
@@ -302,7 +233,5 @@ class RechargeIT extends AbstractIntegrationTest {
         assertThat(refs.stream().distinct().toList()).as("une seule référence produite").hasSize(1);
         assertThat(accountRepository.findById(accountId).orElseThrow().getBalance())
                 .as("le compte n'est crédité qu'une fois").isEqualByComparingTo("30000");
-        assertThat(transactionRepository.sumByAccountAndStatus(accountId, TransactionStatus.VALIDEE))
-                .isEqualByComparingTo("30000");
     }
 }

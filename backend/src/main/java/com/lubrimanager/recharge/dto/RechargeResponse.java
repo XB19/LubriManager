@@ -5,11 +5,8 @@ import java.math.BigDecimal;
 import java.time.Instant;
 
 /**
- * Vue d'une recharge (données du reçu, §13). Aussi utilisée comme projection JPQL
- * pour la liste : ordre et types des composants = ordre de la requête.
- *
- * <p>{@code status = EN_ATTENTE} ⇒ recharge en attente de validation, solde non
- * encore modifié ({@code balanceAfter} est alors une estimation).
+ * Vue d'une recharge (données du reçu). Aussi utilisée comme projection JPQL pour
+ * la liste : ordre et types des composants = ordre de la requête.
  */
 public record RechargeResponse(
         Long id,
@@ -20,7 +17,6 @@ public record RechargeResponse(
         Long customerId,
         String customerNo,
         String cardNo,
-        String paymentMethod,
         BigDecimal amount,
         BigDecimal balanceBefore,
         BigDecimal balanceAfter,

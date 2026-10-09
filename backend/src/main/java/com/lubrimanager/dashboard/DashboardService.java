@@ -7,7 +7,6 @@ import com.lubrimanager.dashboard.dto.DashboardResponse;
 import com.lubrimanager.dashboard.dto.TopCustomerRow;
 import com.lubrimanager.dashboard.dto.TopProductRow;
 import com.lubrimanager.dashboard.dto.UserActivityRow;
-import com.lubrimanager.product.ProductStatus;
 import com.lubrimanager.transaction.TransactionStatus;
 import com.lubrimanager.transaction.TransactionType;
 import java.time.Clock;
@@ -39,9 +38,7 @@ public class DashboardService {
                 repository.countCustomersExcludingStatus(CustomerStatus.ARCHIVE),
                 repository.countCards(),
                 repository.countCardsByStatus(CardStatus.ACTIVE),
-                repository.countCardsByStatus(CardStatus.BLOQUEE),
-                repository.countLowStockProducts(ProductStatus.ACTIF),
-                repository.countTransactions(RECHARGE, TransactionStatus.EN_ATTENTE));
+                repository.countCardsByStatus(CardStatus.BLOQUEE));
 
         return new DashboardResponse(counts,
                 period(DashboardPeriods.today(clock)),
@@ -76,8 +73,7 @@ public class DashboardService {
                 repository.userTransactionCount(userId, ACHAT, VALIDEE, r.from(), r.to()),
                 repository.userSalesAmount(userId, ACHAT, VALIDEE, r.from(), r.to()),
                 repository.userTransactionCount(userId, RECHARGE, VALIDEE, r.from(), r.to()),
-                repository.userRechargeAmount(userId, RECHARGE, VALIDEE, r.from(), r.to()),
-                repository.userRechargesByPaymentMethod(userId, VALIDEE, r.from(), r.to()));
+                repository.userRechargeAmount(userId, RECHARGE, VALIDEE, r.from(), r.to()));
     }
 
     private static int clamp(int limit) {

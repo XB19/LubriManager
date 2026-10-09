@@ -10,12 +10,10 @@ public record DashboardResponse(Counts counts, Period today, Period week, Period
             long activeCustomers,
             long totalCards,
             long activeCards,
-            long blockedCards,
-            long lowStockProducts,
-            long pendingRecharges) {
+            long blockedCards) {
     }
 
-    /** {@code salesAmount} = chiffre d'affaires TTC sur la période. */
+    /** {@code salesAmount} = total des débits carte sur la période. */
     public record Period(
             BigDecimal rechargeAmount,
             long rechargeCount,
